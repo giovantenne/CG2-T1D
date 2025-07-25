@@ -1,7 +1,6 @@
 #include <WebServer.h>
 #include <AutoConnect.h>
 #include <Arduino.h>
-#include <WebSocketsClient.h>
 #include <EEPROM.h>
 #include <TFT_eSPI.h>
 #include <SPI.h>
@@ -29,6 +28,7 @@
 #include "fonts/ArialBold24.h"
 #include "fonts/Arial15.h"
 #include "fonts/ArialBold46.h"
+#include "mbedtls/sha256.h"
 
 void buttonTask(void * params);
 void showWifiDisconnected();
@@ -36,33 +36,26 @@ String initialize2(AutoConnectAux& aux, PageArgument& args);
 bool startCP(IPAddress ip);
 void connectClient();
 void rootPage();
-void webSocketEvent(WStype_t type, uint8_t * payload, size_t length);
 void deleteAllCredentials(void);
 void setDefaultValues();
-String formatStringToFloat(String s, short precision);
-String formatStringPercChange(String s);
-String httpGETRequest(const char* serverName);
 bool checkCoin(String testSymbol, short c);
 void saveSettings(void);
 boolean isValidNumber(String str);
 void showInvalidParams();
+bool fetchData();
 void writeStringToEEPROM(int addrOffset, const String &strToWrite);
 String readStringFromEEPROM(int addrOffset);
-void readCoinConfig();
+void readConfig();
 void button_init();
-int32_t rgbToInt(short r, short g, short b);
 void espDelay(int ms);
-void showCandlesLoading();
-void buildCandles();
-void showCandleFooter();
-void showLoadingCandleFooter();
 void showTicker();
-void showCmcLoading();
-void showCmc();
-void showLoadingCmcHeader();
-void showSymbol();
 bool detectAP(void);
 void readBatteryLevel();
+void showGraph();
+void showLoading();
+bool isValidEmail(String s);
+String sha256hex(const String& input);
+
 
 #define EEPROM_SIZE 512
 #define NOTO_SANS_BOLD_15 NotoSansBold15

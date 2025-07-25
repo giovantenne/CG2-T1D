@@ -1,10 +1,8 @@
 // 240x135
 #include "utils.h"
 
-static const String zticker_version = "v2.36";
-static const String binanceStreamDomain = "data-stream.binance.com";
-static const String binanceApiBaseUrl = "https://data-api.binance.vision";
-static const String coingekoApiBaseUrl = "https://api.coingecko.com";
+static const String zticker_version = "vT1D";
+static const String apiBaseUrl = "https://api.libreview.io";
 
 String initialize2(AutoConnectAux&, PageArgument&);
 TFT_eSPI tft = TFT_eSPI(); // Invoke custom library
@@ -18,34 +16,27 @@ int btn2Click = false;
 WebServer Server;
 AutoConnect Portal(Server);
 AutoConnectConfig Config;
-WebSocketsClient client;
 String value;
-String oldValue;
-String timedValue;
+String trendArrow;
+String name;
 String percChange;
-String valChange;
-String symbol;
-String pairs[3];
-short precisions[3];
-short tmpPrecisions[3];
-short selectedSymbol;
-String dailyHigh;
-String dailyLow;
-String receivedSymbol;
-short separatorPosition;
-short coinPrecision;
-short brightness;
-bool updateDisplay;
-bool hideWsDisconnected = false;
-short screen = 0;
-String candleInterval[] = { "1m", "5m", "30m", "1h", "6h", "12h", "1d", "1w", "1M" };
-short selectedCandleInterval = 3;
-short candlesHeight=119;
-short cmcPage=0;
-bool looped;
-bool cmcLoading = false;
+DynamicJsonDocument doc(20480);
+String timestamp;
+String oldTimestamp;
+
+short brightness = 21;
+String username;
+String password;
+short patientIndex;
+String token = "";
+String sha256AccountId;
+String patientId;
+
+JsonArray graphData;
+bool isLoading=false;
 int batteryLevel;
 bool charging = false;
+int points = 48; // MAX 48
 // Setting PWM properties, do not change this!
 const int pwmFreq = 5000;
 const int pwmResolution = 8;
@@ -53,29 +44,19 @@ const int pwmLedChannelTFT = 0;
 bool comingFromCP;
 unsigned long tmDetection;
 const unsigned long scanInterval = 120 * 1000;
-unsigned long timedTaskmDetection;
-const unsigned long timedTaskInterval = 30 * 1000;
-unsigned long wsTimedTaskmDetection;
-const unsigned long wsTimedTaskInterval = 100;
+unsigned long timedTaskmDetection = -1000000000;
+const unsigned long timedTaskInterval = 1000 * 60;
 ACText(caption1, "Do you want to perform a factory reset?");
 ACSubmit(save1, "Yes, reset the device", "/delconnexecute");
 AutoConnectAux aux1("/delconn", "Reset", true, {caption1, save1});
 AutoConnectAux aux1Execute("/delconnexecute", "Wifi reset", false);
-ACText(captionPair0, "<strong>Display</strong>");
-ACText(captionPair1, "<hr><strong>Pair n°1</strong>");
-ACText(captionPair2, "<hr><strong>Pair n°2</strong>");
-ACText(captionPair3, "<hr><strong>Pair n°3</strong>");
-ACText(captionPair4, "<hr>");
-ACInput(inputBrightness, "", "Brightness (0-100)", "", "100");
-ACInput(pair1, "", "Binance symbol (eg. BTCUSDT)", "", "BTCUSDT");
-ACInput(pair2, "", "Binance symbol (eg. ETHBTC)", "", "ETHBTC");
-ACInput(pair3, "", "Binance symbol (eg. XRPUSDT)", "", "XRPUSDT");
-ACInput(precision1, "", "Decimal digits (blank for default)", "", "");
-ACInput(precision2, "", "Decimal digits (blank for default)", "", "");
-ACInput(precision3, "", "Decimal digits (blank for default)", "", "");
-ACText(credits, "<hr>Follow me on Twitter: <a href='https://twitter.com/CryptoGadgetsIT'>@CryptoGadgetsIT</a>");
+ACText(captionLogin, "<hr><strong>Login</strong><br>");
+ACText(captionHr, "<hr>");
+ACInput(inputEmail, "", "Email", "", "");
+ACInput(inputPassword, "", "Password", "", "");
+ACInput(inputPatientIndex, "0", "Patient index", "", "0");
 ACSubmit(save2, "Save", "/setupexecute");
-AutoConnectAux aux2("/setup", "Settings", true, {captionPair0, inputBrightness, captionPair1, pair1, precision1, captionPair2, pair2, precision2, captionPair3, pair3, precision3, captionPair4, save2, credits});
+AutoConnectAux aux2("/setup", "Settings", true, {captionLogin, inputEmail, inputPassword, inputPatientIndex, captionHr, save2});
 AutoConnectAux aux3("/setupexecute", "", false);
 
 void setup()
@@ -92,7 +73,6 @@ void setup()
   ledcSetup(pwmLedChannelTFT, pwmFreq, pwmResolution);
   ledcAttachPin(TFT_BL, pwmLedChannelTFT);
   ledcWrite(pwmLedChannelTFT, 120);
-  readCoinConfig();
   Serial.println(esp_random());
   spr.createSprite(240, 135);
   spr.loadFont(NOTO_SANS_BOLD_15);
@@ -122,9 +102,7 @@ void setup()
   Portal.onDetect(startCP);
   Portal.whileCaptivePortal(detectAP);
   aux2.on(initialize2, AC_EXIT_AHEAD);
-  Portal.join({aux2, aux1, aux1Execute, aux3});
   value = "";
-  oldValue = "";
 
   if(digitalRead(BUTTON_1) == 0){
     deleteAllCredentials();
@@ -145,30 +123,31 @@ void setup()
       spr.unloadFont();
       Serial.println("Connection Opened");
       delay(3000);
-      // readBatteryLevel();
+      readBatteryLevel();
+      Portal.join({aux2, aux1, aux1Execute, aux3});
+      readConfig();
       short convertedBrightness = brightness*255/100;
       Serial.println(convertedBrightness);
       ledcWrite(pwmLedChannelTFT, convertedBrightness);
+      if(username==""){
+        Serial.println("Account not connected");
+        spr.createSprite(240, 135);
+        spr.loadFont(ARIAL_BOLD_24);
+        spr.fillSprite(TFT_BLACK);
+        spr.setTextDatum(MC_DATUM);
+        spr.setTextColor(TFT_DARKGREY, TFT_BLACK);
+        spr.drawString("Please browse to", 120, 40);
+        spr.loadFont(ARIAL_BOLD_15);
+        spr.setTextColor(TFT_DARKGREEN, TFT_BLACK);
+        spr.drawString("http://" + WiFi.localIP().toString() + "/setup", 120, 80);
+        spr.pushSprite(0,0);
+        spr.unloadFont();
+      }
       if (WiFi.getMode() & WIFI_AP) {
         WiFi.softAPdisconnect(true);
         WiFi.enableAP(false);
       }
     }
-    if(!checkCoin(symbol, 0)){
-      if(symbol != "btcusdt"){
-        setDefaultValues();
-      }
-    }
-    if(screen == 1) {
-      showCandlesLoading();
-      buildCandles();
-    } else if(screen == 2) {
-      cmcPage = 0;
-      showCmcLoading();
-      showCmc();
-    }
-    looped = false;
-    connectClient();
   }
 
   xTaskCreatePinnedToCore(
@@ -192,74 +171,32 @@ void loop()
       if (btn1Click){
         btn1Click = false;
         Serial.println("btn1Click");
-        if(screen == 0){
-          selectedSymbol = (selectedSymbol + 1) % 3;
-          EEPROM.write(sizeof(brightness), selectedSymbol);
-          EEPROM.commit();
-          symbol = pairs[selectedSymbol];
-          coinPrecision = precisions[selectedSymbol];
-          showSymbol();
-          hideWsDisconnected = true;
-          connectClient();
-          hideWsDisconnected = false;
-        }else if(screen == 1){
-          selectedCandleInterval = (selectedCandleInterval + 1) % 9;
-          EEPROM.write(sizeof(brightness) + sizeof(selectedSymbol) + sizeof(pairs[0])  + sizeof(pairs[1])  + sizeof(pairs[2]) + (sizeof(coinPrecision)*3), selectedCandleInterval);
-          EEPROM.commit();
-          showLoadingCandleFooter();
-          buildCandles();
-        } else if (screen == 2){
-          cmcPage = (cmcPage + 1) % 4;
-          showLoadingCmcHeader();
-          showCmc();
-        }
+        brightness = (brightness + 10) % 100;
+        short convertedBrightness = brightness*255/100;
+        Serial.println(convertedBrightness);
+        ledcWrite(pwmLedChannelTFT, convertedBrightness);
+        int addr = 0;
+        EEPROM.write(0, brightness);
+        EEPROM.commit();
       }
       if (btn2Click){
         btn2Click = false;
-        Serial.println("btn2Click; screen:" + screen);
-        if(screen == 0) {
-          screen = 1;
-          showCandlesLoading();
-          buildCandles();
-        } else if(screen == 1) {
-          screen = 2;
-          cmcPage = 0;
-          showCmcLoading();
-          cmcLoading = true;
-          showCmc();
-          cmcLoading = false;
-        } else {
-          screen = 0;
-          showSymbol();
-          hideWsDisconnected = true;
-          connectClient();
-          hideWsDisconnected = false;
-        }
-        EEPROM.write(sizeof(brightness) + sizeof(selectedSymbol) + sizeof(pairs[0])  + sizeof(pairs[1])  + sizeof(pairs[2]) + (sizeof(coinPrecision)*3) + sizeof(selectedCandleInterval), screen);
-        EEPROM.commit();
+        Serial.println("btn2Click");
+        points = points / 2;
+        if (points < 12)
+          points = 48;
+        Serial.println("zoom...");
+        timedTaskmDetection = -1000000000;
       }
-      if (millis() - timedTaskmDetection > timedTaskInterval) {
-        // readBatteryLevel();
+
+      if (username != "" && (millis() - timedTaskmDetection > timedTaskInterval)) {
+        readBatteryLevel();
         timedTaskmDetection = millis();
         Serial.println("Execute timed task...");
-        if (screen == 1) {
-          Serial.println("Build candles...");
-          buildCandles();
-        } else if (screen == 2 && !cmcLoading) {
-          Serial.println("Refresh CMC");
-          showCmc();
-        } else {
-          if(timedValue == value){
-            Serial.println("Price freeze...");
-            connectClient();
-          } else {
-            timedValue = value;
-          }
-        }
+        showLoading();
+        fetchData();
+        showTicker();
       }
-      looped = true;
-      client.loop();
-      looped = false;
     }
     /* Serial.println(ESP.getFreeHeap()); */
   }
@@ -293,20 +230,20 @@ void showWifiDisconnected(){
 }
 
 String initialize2(AutoConnectAux& aux, PageArgument& args) {
-  String tmpSymbol;
-  tmpSymbol=pairs[0];
-  tmpSymbol.toUpperCase();
-  pair1.value = tmpSymbol;
-  precision1.value = precisions[0];
-  tmpSymbol=pairs[1];
-  tmpSymbol.toUpperCase();
-  pair2.value = tmpSymbol;
-  precision2.value = precisions[1];
-  tmpSymbol=pairs[2];
-  tmpSymbol.toUpperCase();
-  pair3.value = tmpSymbol;
-  precision3.value = precisions[2];
-  inputBrightness.value=brightness;
+  // String tmpSymbol;
+  // tmpSymbol=pairs[0];
+  // tmpSymbol.toUpperCase();
+  // pair1.value = tmpSymbol;
+  // precision1.value = precisions[0];
+  // tmpSymbol=pairs[1];
+  // tmpSymbol.toUpperCase();
+  // pair2.value = tmpSymbol;
+  // precision2.value = precisions[1];
+  // tmpSymbol=pairs[2];
+  // tmpSymbol.toUpperCase();
+  // pair3.value = tmpSymbol;
+  // precision3.value = precisions[2];
+  // inputBrightness.value=brightness;
   return String();
 }
 
@@ -334,77 +271,11 @@ bool startCP(IPAddress ip){
   return true;
 }
 
-void connectClient(){
-  client.disconnect();
-  client.beginSSL(binanceStreamDomain, 9443, "/ws/" + symbol + "@ticker/" + symbol + "@aggTrade");
-  client.onEvent(webSocketEvent);
-}
 
 void rootPage() {
   Server.sendHeader("Location", "/_ac");
   Server.sendHeader("Cache-Control", "no-cache");
   Server.send(301);
-}
-
-void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
-  switch(type) {
-    case WStype_DISCONNECTED:
-      if(!hideWsDisconnected){
-        spr.createSprite(30, 30);
-        spr.pushImage(0, 0,  30, 24, disconnectedIcon);
-        spr.pushSprite(0,0);
-        Serial.println("[WSc] Disconnected!\n");
-        delay(2000);
-      }
-      connectClient();
-      break;
-    case WStype_CONNECTED:
-      {
-        Serial.println("[WSc] Connected");
-      }
-      break;
-    case WStype_TEXT:
-      if (millis() - wsTimedTaskmDetection > wsTimedTaskInterval) {
-        wsTimedTaskmDetection = millis();
-        if (looped && !btn1Click && !btn2Click) {
-          looped = false;
-          String event;
-          updateDisplay = false;
-          StaticJsonDocument<1024> myObject;
-          deserializeJson(myObject, payload);
-          event = myObject["e"].as<String>();
-          if(event == "24hrTicker"){
-            percChange = myObject["P"].as<String>();
-            valChange = myObject["p"].as<String>();
-            dailyHigh = myObject["h"].as<String>();
-            dailyLow = myObject["l"].as<String>();
-            updateDisplay = true;
-          } else if (event == "aggTrade") {
-            oldValue = value;
-            value = myObject["p"].as<String>();
-            receivedSymbol = myObject["s"].as<String>();
-            updateDisplay = true;
-          }
-          if(updateDisplay && value != ""){
-            if(screen == 0){
-              showTicker();
-            } else if(screen == 1){
-              showCandleFooter();
-            }
-          }
-        }
-      }
-      break;
-    case WStype_BIN:
-      Serial.println("[WSc] get binary length: " + length);
-      break;
-    case WStype_ERROR:
-    case WStype_FRAGMENT_TEXT_START:
-    case WStype_FRAGMENT_BIN_START:
-    case WStype_FRAGMENT:
-    case WStype_FRAGMENT_FIN:
-      break;
-  }
 }
 
 void deleteAllCredentials(void) {
@@ -436,86 +307,79 @@ void setDefaultValues() {
   spr.drawString("default values", 120, 80);
   spr.pushSprite(0, 0);
   spr.unloadFont();
-  symbol = "btcusdt";
-  coinPrecision = 2;
-  selectedSymbol = 0;
-  brightness = 75;
-  EEPROM.write(0, brightness);
-  EEPROM.write(sizeof(brightness), selectedSymbol);
-  pairs[0] = "btcusdt";
-  precisions[0] = 2;
-  pairs[1] = "ethusdt";
-  precisions[1] = 2;
-  pairs[2] = "xrpusdt";
-  precisions[2] = 4;
-  writeStringToEEPROM(sizeof(brightness) + sizeof(selectedSymbol), pairs[0]);
-  EEPROM.write(sizeof(brightness) + sizeof(selectedSymbol) + sizeof(pairs[0]), precisions[0]);
-  writeStringToEEPROM(sizeof(brightness) + sizeof(selectedSymbol) + sizeof(pairs[0]) + sizeof(coinPrecision), pairs[1]);
-  EEPROM.write(sizeof(brightness) + sizeof(selectedSymbol) + sizeof(pairs[0]) + sizeof(coinPrecision) + sizeof(pairs[1]), precisions[1]);
-  writeStringToEEPROM(sizeof(brightness) + sizeof(selectedSymbol) + sizeof(pairs[0]) + sizeof(coinPrecision) + sizeof(pairs[1]) + sizeof(coinPrecision), pairs[2]);
-  EEPROM.write(sizeof(brightness) + sizeof(selectedSymbol) + sizeof(pairs[0]) + sizeof(coinPrecision) + sizeof(pairs[1]) + sizeof(coinPrecision) + sizeof(pairs[2]), precisions[2]);
-  selectedCandleInterval = 3;
-  EEPROM.write(sizeof(brightness) + sizeof(selectedSymbol) + sizeof(pairs[0]) + sizeof(coinPrecision) + sizeof(pairs[1]) + sizeof(coinPrecision) + sizeof(pairs[2]) + sizeof(coinPrecision), selectedCandleInterval);
-  screen = 0;
-  EEPROM.write(sizeof(brightness) + sizeof(selectedSymbol) + sizeof(pairs[0])  + sizeof(pairs[1])  + sizeof(pairs[2]) + (sizeof(coinPrecision)*3) + sizeof(selectedCandleInterval), screen);
+
+  brightness = 21;
+  username="";
+  password="";
+  sha256AccountId="";
+  patientId="";
+  token="";
+
+  int addr = 0;
+  EEPROM.write(addr++, brightness);
+  writeStringToEEPROM(addr, username);
+  addr += 1 + username.length();
+  writeStringToEEPROM(addr, password);
+  addr += 1 + password.length();
+  writeStringToEEPROM(addr, sha256AccountId);
+  addr += 1 + sha256AccountId.length();
+  writeStringToEEPROM(addr, patientId);
+  addr += 1 + patientId.length();
   EEPROM.commit();
+
   delay(3000);
 }
 
-String formatStringToFloat(String s, short precision){
-  separatorPosition = s.indexOf('.');
-  if(precision == 0) {
-    return s.substring(0, separatorPosition);
-  } else {
-    return s.substring(0, separatorPosition) + "." + s.substring(separatorPosition + 1, separatorPosition + 1 + precision);
-  }
-}
+bool fetchData() {
+  Serial.println("fetchData");
 
-String formatStringPercChange(String s){
-  String tmp;
-  tmp = formatStringToFloat(s, 2);
-  if(tmp.indexOf("-") == -1)
-    tmp = "+" + tmp;
-  return tmp;
-}
-
-String httpGETRequest(const char* serverName) {
-  Serial.println(serverName);
   HTTPClient http;
-  http.setReuse(false);
-  http.begin(serverName);
-  short httpResponseCode = http.GET();
-  String payload;
+  http.begin(apiBaseUrl + "/llu/connections/" + patientId + "/graph");
+  http.addHeader("Authorization", "Bearer " + token);
+  http.addHeader("product", "llu.android");
+  http.addHeader("version", "4.15.0");
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("Accept", "application/json");
+  http.addHeader("account-id", sha256AccountId);
+
+  int httpResponseCode = http.GET();
+
   if (httpResponseCode > 0) {
-    payload = http.getString();
-  }
-  else {
-    Serial.print("Error code: ");
+    String payload = http.getString();
+    // Serial.println(payload);
+
+    const size_t capacity = 20 * 1024;
+
+    DeserializationError error = deserializeJson(doc, payload);
+    if (error) {
+      tft.loadFont(NOTO_SANS_BOLD_15);
+      tft.setTextColor(TFT_RED, TFT_BLACK);
+      tft.setTextDatum(ML_DATUM);
+      tft.drawString("Error", 5, 26);
+      Serial.print("JSON deserialization failed: ");
+      Serial.println(error.c_str());
+      return false;
+    }
+    int v = doc["data"]["connection"]["glucoseMeasurement"]["ValueInMgPerDl"];
+    value = v;
+    int t = doc["data"]["connection"]["glucoseMeasurement"]["TrendArrow"];
+    trendArrow = t;
+    oldTimestamp=timestamp;
+    String ts = doc["data"]["connection"]["glucoseMeasurement"]["Timestamp"];
+    timestamp = ts;
+  } else {
+    tft.loadFont(NOTO_SANS_BOLD_15);
+    tft.setTextColor(TFT_RED, TFT_BLACK);
+    tft.setTextDatum(ML_DATUM);
+    tft.drawString("Error" + httpResponseCode, 5, 26);
+    Serial.print("HTTP error: ");
     Serial.println(httpResponseCode);
-    Serial.println(http.getString());
   }
   http.end();
-  return payload;
-}
-
-bool checkCoin(String testSymbol, short c) {
-  testSymbol.toUpperCase();
-  String serverPath = binanceApiBaseUrl + "/api/v3/exchangeInfo?symbol=" + testSymbol;
-  String jsonBuffer = httpGETRequest(serverPath.c_str());
-  Serial.println(jsonBuffer);
-  DynamicJsonDocument myResponseObject(2048);
-  deserializeJson(myResponseObject, jsonBuffer);
-  if(myResponseObject["code"].is<int>() || jsonBuffer == ""){
-    return false;
-  }
-  String minPrice = myResponseObject["symbols"][0]["filters"][0]["minPrice"];
-  tmpPrecisions[c] = (minPrice.substring(minPrice.indexOf('.') + 1)).indexOf('1') + 1;
-  Serial.println(tmpPrecisions[c]);
   return true;
 }
 
 void saveSettings(void){
-  updateDisplay = false;
   spr.createSprite(240, 135);
   spr.loadFont(ARIAL_BOLD_15);
   spr.fillSprite(TFT_BLACK);
@@ -525,68 +389,84 @@ void saveSettings(void){
   spr.drawString("Checking values...", 65, 67);
   spr.pushSprite(0, 0);
   spr.unloadFont();
-  short newBrightness = Server.arg("inputBrightness").toInt();
-  String c0 = Server.arg("pair1");
-  String c1 = Server.arg("pair2");
-  String c2 = Server.arg("pair3");
-  c0.toLowerCase();
-  c1.toLowerCase();
-  c2.toLowerCase();
-  short p0 = Server.arg("precision1").toInt();
-  short p1 = Server.arg("precision2").toInt();
-  short p2 = Server.arg("precision3").toInt();
-  if(isValidNumber(Server.arg("inputBrightness")) && newBrightness >= 0 && newBrightness <= 100){
-    if (checkCoin(c0, 0) && checkCoin(c1, 1) && checkCoin(c2, 2)){
-      pairs[0]=c0;
-      pairs[1]=c1;
-      pairs[2]=c2;
-      precisions[0]=tmpPrecisions[0];
-      precisions[1]=tmpPrecisions[1];
-      precisions[2]=tmpPrecisions[2];
-      if(isValidNumber(Server.arg("precision1")) &&  p0 >= 0 && p0 <= 8)
-        precisions[0]=p0;
-      if(isValidNumber(Server.arg("precision2")) &&  p1 >= 0 && p1 <= 8)
-        precisions[1]=p1;
-      if(isValidNumber(Server.arg("precision3")) &&  p2 >= 0 && p2 <= 8)
-        precisions[2]=p2;
-      selectedSymbol = 0;
-      symbol=pairs[selectedSymbol];
-      coinPrecision=precisions[selectedSymbol];
-      brightness=newBrightness;
-      Serial.println("WRITE TO EEPROM");
-      EEPROM.write(0, brightness);
-      EEPROM.write(sizeof(brightness), selectedSymbol);
-      writeStringToEEPROM(sizeof(brightness) + sizeof(selectedSymbol), pairs[0]);
-      EEPROM.write(sizeof(brightness) + sizeof(selectedSymbol) + sizeof(pairs[0]), precisions[0]);
-      writeStringToEEPROM(sizeof(brightness) + sizeof(selectedSymbol) + sizeof(pairs[0]) + sizeof(precisions[0]), pairs[1]);
-      EEPROM.write(sizeof(brightness) + sizeof(selectedSymbol) + sizeof(pairs[0]) + sizeof(precisions[0]) + sizeof(pairs[1]), precisions[1]);
-      writeStringToEEPROM(sizeof(brightness) + sizeof(selectedSymbol) + sizeof(pairs[0]) + sizeof(precisions[0]) + sizeof(pairs[1]) + sizeof(precisions[1]), pairs[2]);
-      EEPROM.write(sizeof(brightness) + sizeof(selectedSymbol) + sizeof(pairs[0]) + sizeof(precisions[0]) + sizeof(pairs[1]) + sizeof(precisions[1]) + sizeof(pairs[2]), precisions[2]);
-      EEPROM.commit();
-      short convertedBrightness = brightness*255/100;
-      Serial.println(convertedBrightness);
-      ledcWrite(pwmLedChannelTFT, convertedBrightness);
-      value = "";
-      hideWsDisconnected = true;
-      connectClient();
-      hideWsDisconnected = false;
-      if(screen == 0){
-        showSymbol();
-      } else if(screen == 1) {
-        buildCandles();
-      } else if (screen == 2) {
-        showCmc();
+
+  String newEmail = Server.arg("inputEmail");
+  String newPassword = Server.arg("inputPassword");
+  int newPatientIndex = Server.arg("inputPatientIndex").toInt();
+
+  if(isValidNumber(Server.arg("inputPatientIndex"))){
+    HTTPClient http;
+    http.begin(apiBaseUrl + "/llu/auth/login");
+    http.addHeader("product", "llu.android");
+    http.addHeader("version", "4.15.0");
+    http.addHeader("Content-Type", "application/json");
+    http.addHeader("Accept", "application/json");
+    String postData = "{";
+    postData += "\"email\":\"" + newEmail + "\",";
+    postData += "\"password\":\"" + newPassword + "\"";
+    postData += "}";
+    int httpResponseCode = http.POST(postData);
+
+    if (httpResponseCode > 0) {
+      DynamicJsonDocument authDoc(20480);
+      String authPayload = http.getString();
+      const size_t capacity = 20 * 1024;
+      DeserializationError error = deserializeJson(authDoc, authPayload);
+      if (error || authDoc["status"] != 0){
+        showInvalidParams();
+      }else{
+        String t = authDoc["data"]["authTicket"]["token"];
+        String ai = authDoc["data"]["user"]["id"];
+        http.end();
+        http.begin(apiBaseUrl + "/llu/connections");
+        http.addHeader("product", "llu.android");
+        http.addHeader("version", "4.15.0");
+        http.addHeader("Content-Type", "application/json");
+        http.addHeader("Accept", "application/json");
+        http.addHeader("Authorization", "Bearer " + t);
+        http.addHeader("account-id", sha256hex(ai));
+        int httpResponseCode = http.GET();
+        authPayload = http.getString();
+
+        error = deserializeJson(authDoc, authPayload);
+        String pi = authDoc["data"][newPatientIndex]["patientId"];
+        patientId = pi;
+
+        String s1 = authDoc["data"]["connection"]["firstName"];
+        String s2 = authDoc["data"]["connection"]["lastName"];
+        name = s1 + " " + s2;
+
+        username=newEmail;
+        password=newPassword;
+        sha256AccountId=sha256hex(ai);
+        patientId=pi;
+
+        int addr = 0;
+        EEPROM.write(addr++, brightness);
+        writeStringToEEPROM(addr, username);
+        addr += 1 + username.length();
+        writeStringToEEPROM(addr, password);
+        addr += 1 + password.length();
+        writeStringToEEPROM(addr, sha256AccountId);
+        addr += 1 + sha256AccountId.length();
+        writeStringToEEPROM(addr, patientId);
+        addr += 1 + patientId.length();
+        EEPROM.commit();
+
+        delay(3000);
+
+        token=t;
+        Server.sendHeader("Location", "/setup?valid=true");
       }
-      Server.sendHeader("Location", "/setup?valid=true");
-    }else{
+
+    } else {
       showInvalidParams();
-    }
-  }else{
+    } 
+  } else {
     showInvalidParams();
   }
   Server.sendHeader("Cache-Control", "no-cache");
   Server.send(301);
-  updateDisplay = true;
 }
 
 boolean isValidNumber(String str){
@@ -607,8 +487,8 @@ void showInvalidParams(){
   spr.drawString("Invalid parameters", 65, 67);
   spr.pushSprite(0, 0);
   spr.unloadFont();
-  Server.sendHeader("Location", "/setup?valid=false&msg=invalidParameters");
   delay(2000);
+  Server.sendHeader("Location", "/setup?valid=false&msg=invalidParameters");
 }
 
 void writeStringToEEPROM(int addrOffset, const String &strToWrite)
@@ -633,29 +513,69 @@ String readStringFromEEPROM(int addrOffset)
   return String(data);
 }
 
-void readCoinConfig(){
-  Serial.println("--- READ FROM EEPROM ---");
-  brightness = EEPROM.read(0);
-  selectedSymbol = EEPROM.read(sizeof(brightness));
-  pairs[0]=readStringFromEEPROM(sizeof(brightness) + sizeof(selectedSymbol));
-  precisions[0]=EEPROM.read(sizeof(brightness) + sizeof(selectedSymbol) + sizeof(pairs[0]));
-  pairs[1]=readStringFromEEPROM(sizeof(brightness) + sizeof(selectedSymbol) + sizeof(pairs[0]) + sizeof(precisions[0]));
-  precisions[1]=EEPROM.read(sizeof(brightness) + sizeof(selectedSymbol) + sizeof(pairs[0]) + sizeof(precisions[0]) + sizeof(pairs[1]));
-  pairs[2]=readStringFromEEPROM(sizeof(brightness) + sizeof(selectedSymbol) + sizeof(pairs[0]) + sizeof(precisions[0]) + sizeof(pairs[1]) + sizeof(precisions[1]));
-  precisions[2]=EEPROM.read(sizeof(brightness) + sizeof(selectedSymbol) + sizeof(pairs[0]) + sizeof(precisions[0]) + sizeof(pairs[1]) + sizeof(precisions[1])+ sizeof(pairs[2]));
-  screen = EEPROM.read(sizeof(brightness) + sizeof(selectedSymbol) + sizeof(pairs[0])  + sizeof(pairs[1])  + sizeof(pairs[2]) + (sizeof(coinPrecision)*3) + sizeof(selectedCandleInterval));
-  if(precisions[0] < 0 || precisions[0] > 8 || precisions[1] < 0 || precisions[1] > 8 || precisions[2] < 0 || precisions[2] > 8 || selectedSymbol < 0 || selectedSymbol >= 3){
+bool isValidEmail(String email) {
+  email.trim();
+  int atIndex = email.indexOf('@');
+  int dotAfterAt = email.indexOf('.', atIndex + 2);
+  int spaceIndex = email.indexOf(' ');
+  return atIndex > 0 &&
+         dotAfterAt > atIndex &&
+         spaceIndex == -1;
+}
+
+void readConfig(){
+  Serial.println("readConfig");
+
+  int addr = 0;
+  brightness = EEPROM.read(addr++);
+  username = readStringFromEEPROM(addr);
+  addr += 1 + username.length();
+  password = readStringFromEEPROM(addr);
+  addr += 1 + password.length();
+  sha256AccountId = readStringFromEEPROM(addr);
+  addr += 1 + sha256AccountId.length();
+  patientId = readStringFromEEPROM(addr);
+
+  if(isValidEmail(username)){
+    HTTPClient http;
+    http.begin(apiBaseUrl + "/llu/auth/login");
+    http.addHeader("product", "llu.android");
+    http.addHeader("version", "4.15.0");
+    http.addHeader("Content-Type", "application/json");
+    http.addHeader("Accept", "application/json");
+    String postData = "{";
+    postData += "\"email\":\"" + username + "\",";
+    postData += "\"password\":\"" + password + "\"";
+    postData += "}";
+    Serial.println(postData);
+    int httpResponseCode = http.POST(postData);
+    Serial.println(postData);
+    if (httpResponseCode > 0) {
+      DynamicJsonDocument authDoc(20480);
+      String authPayload = http.getString();
+      // Serial.println(authPayload);
+      const size_t capacity = 20 * 1024;
+      DeserializationError error = deserializeJson(authDoc, authPayload);
+      if (error || authDoc["status"] != 0){
+        setDefaultValues();
+      }else{
+        String t = authDoc["data"]["authTicket"]["token"];
+        String s1 = doc["data"]["user"]["firstName"];
+        String s2 = doc["data"]["user"]["lastName"];
+        name = s1 + " " + s2;
+        token=t;
+      }
+    } else {
+      setDefaultValues();
+    } 
+  }else{
     setDefaultValues();
   }
-  symbol = pairs[selectedSymbol];
-  coinPrecision = precisions[selectedSymbol];
-  selectedCandleInterval = EEPROM.read(sizeof(brightness) + sizeof(selectedSymbol) + sizeof(pairs[0]) + sizeof(pairs[1]) + sizeof(pairs[2]) + (sizeof(coinPrecision) * 3 ));
-  if(selectedCandleInterval<0 || selectedCandleInterval >=9)
-    selectedCandleInterval = 3;
 }
 
 void button_init()
 {
+  btn1.setLongClickTime(2000);
   btn2.setLongClickTime(2000);
   btn2.setLongClickDetectedHandler([](Button2 & b) {
       Serial.println("Going to sleep...");
@@ -666,6 +586,15 @@ void button_init()
       esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TIMER);
       esp_sleep_enable_ext0_wakeup(GPIO_NUM_35, 0);
       esp_deep_sleep_start();
+      });
+
+  btn1.setLongClickDetectedHandler([](Button2 & b) {
+      readBatteryLevel();
+      timedTaskmDetection = millis();
+      Serial.println("Execute forced task...");
+      showLoading();
+      fetchData();
+      showTicker();
       });
 
   btn1.setPressedHandler([](Button2 & b) {
@@ -681,10 +610,6 @@ void button_init()
       });
 }
 
-int32_t rgbToInt(short r, short g, short b) {
-  return (((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3));
-}
-
 void espDelay(int ms)
 {
   esp_sleep_enable_timer_wakeup(ms * 1000);
@@ -692,327 +617,157 @@ void espDelay(int ms)
   esp_light_sleep_start();
 }
 
-void showCandlesLoading(){
-  spr.createSprite(240, 135);
-  spr.loadFont(ARIAL_BOLD_24);
-  spr.fillSprite(TFT_BLACK);
-  spr.pushImage(80, 10, 80, 80, candleIcon);
-  spr.loadFont(ARIAL_BOLD_24);
-  spr.setTextDatum(MC_DATUM);
-  spr.setTextColor(TFT_WHITE, TFT_BLACK);
-  spr.drawString("GRAPH", 120, 115);
-  spr.pushSprite(0, 0);
-  spr.unloadFont();
-  delay(1000);
-}
-
-void buildCandles(){
-  float cOpen, cHigh, cLow, cClose;
-  short yOpen, yHigh, yLow, yClose, height;
-  uint16_t color;
-  Serial.println("Getting candles...");
-  String s = symbol;
-  s.toUpperCase();
-  String serverPath = binanceApiBaseUrl + "/api/v3/klines?symbol=" + s + "&interval=" + candleInterval[selectedCandleInterval] + "&limit=40";
-  String jsonBuffer = httpGETRequest(serverPath.c_str());
-  if(jsonBuffer == "{}"){
-    Serial.println("Error retrieving candles!");
-  }else{
-    /* Serial.println(jsonBuffer); */
-    DynamicJsonDocument myJson(16384);
-    deserializeJson(myJson, jsonBuffer);
-    JsonArray candlesArray = myJson.as<JsonArray>();
-    Serial.println(ESP.getFreeHeap());
-    if(candlesArray.size() > 0){
-      float rangeMin = atof(candlesArray[0][3]);
-      float rangeMax = atof(candlesArray[0][2]);
-      for(JsonVariant v : candlesArray) {
-        if(atof(v[3]) < rangeMin)
-          rangeMin = atof(v[3]);
-        if(atof(v[2]) > rangeMax)
-          rangeMax = atof(v[2]);
-      }
-      spr.createSprite(240, candlesHeight + 1);
-      spr.fillSprite(TFT_BLACK);
-      int i = 0;
-      for(JsonVariant v : candlesArray) {
-        short x = (i*6) + 2;
-        cOpen = atof(v[1]);
-        cHigh = atof(v[2]);
-        cLow = atof(v[3]);
-        cClose = atof(v[4]);
-        if(cOpen > cClose){
-          color = TFT_RED;
-          yHigh = candlesHeight - ((cOpen - rangeMin) * candlesHeight / (rangeMax-rangeMin));
-          yLow = candlesHeight - ((cClose - rangeMin) * candlesHeight / (rangeMax-rangeMin));
-        } else {
-          color = TFT_GREEN;
-          yHigh = candlesHeight - ((cClose - rangeMin) * candlesHeight / (rangeMax-rangeMin));
-          yLow = candlesHeight - ((cOpen - rangeMin) * candlesHeight / (rangeMax-rangeMin));
-        }
-        spr.drawRect(x-2, yHigh, 5, yLow - yHigh, color);
-        spr.drawRect(x-1, yHigh, 3, yLow - yHigh, color);
-        yLow = candlesHeight - ((cLow - rangeMin) * candlesHeight / (rangeMax-rangeMin));
-        yHigh = candlesHeight - ((cHigh - rangeMin) * candlesHeight / (rangeMax-rangeMin));
-        spr.drawLine(x, yHigh, x, yLow, color);
-        i++;
-      }
-      spr.loadFont(NOTO_SANS_BOLD_15);
-      spr.setTextColor(TFT_WHITE, TFT_BLACK);
-      bool maxPrinted = false;
-      bool minPrinted = false;
-      i = 0;
-      for(JsonVariant v : candlesArray) {
-        short x = (i*6) + 2;
-        cHigh = atof(v[2]);
-        cLow = atof(v[3]);
-        spr.unloadFont();
-        spr.loadFont(NOTO_SANS_15);
-        if(cHigh == rangeMax && ! maxPrinted){
-          if(i < 20 ) {
-            spr.setTextDatum(ML_DATUM);
-            spr.drawString(formatStringToFloat((const char*)v[2], coinPrecision), x + 5, 1);
-          } else{
-            spr.setTextDatum(MR_DATUM);
-            spr.drawString(formatStringToFloat((const char*)v[2], coinPrecision), x - 5, 1);
-          }
-          maxPrinted == true;
-        }
-        if(cLow == rangeMin && ! minPrinted){
-          if(i < 20 ) {
-            spr.setTextDatum(ML_DATUM);
-            spr.drawString(formatStringToFloat((const char*)v[3], coinPrecision), x + 5, candlesHeight - 8);
-          } else{
-            spr.setTextDatum(MR_DATUM);
-            spr.drawString(formatStringToFloat((const char*)v[3], coinPrecision), x - 5, candlesHeight - 8);
-          }
-          minPrinted == true;
-        }
-        i++;
-      }
-      spr.unloadFont();
-      spr.drawLine(0, candlesHeight, 239, candlesHeight, TFT_DARKGREY);
-      spr.pushSprite(0, 0);
-      showCandleFooter();
-    }
-  }
-}
-
-void showCandleFooter(){
-  spr.createSprite(240, 135 - candlesHeight - 3);
-  spr.fillSprite(TFT_BLACK);
-  spr.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  spr.loadFont(NOTO_SANS_15);
-  spr.setTextDatum(ML_DATUM);
-  String s = symbol;
-  s.toUpperCase();
-  spr.drawString(s, 5, 4);
-  spr.setTextDatum(MC_DATUM);
-  spr.unloadFont();
-  spr.loadFont(NOTO_SANS_BOLD_15);
-  spr.drawString(candleInterval[selectedCandleInterval], 120, 4);
-  spr.setTextDatum(MR_DATUM);
-  if(oldValue.toFloat() > value.toFloat())
-    spr.setTextColor(TFT_RED, TFT_BLACK);
-  else
-    spr.setTextColor(TFT_DARKGREEN, TFT_BLACK);
-  String newValue = formatStringToFloat(value, coinPrecision);
-  /* Serial.println(newValue); */
-  spr.setTextDatum(ML_DATUM);
-  short fontWidth = 8;
-  spr.drawString(newValue, (235-(fontWidth*newValue.length())) , 4);
-
-  spr.unloadFont();
-  spr.pushSprite(0, candlesHeight + 2);
-}
-
-void showLoadingCandleFooter(){
-  spr.loadFont(NOTO_SANS_BOLD_15);
-  spr.createSprite(240, 135 - candlesHeight);
-  spr.fillSprite(TFT_BLACK);
-  spr.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  spr.setTextDatum(ML_DATUM);
-  spr.drawString("Loading...", 5, 2);
-  spr.setTextDatum(MC_DATUM);
-  spr.drawString(candleInterval[selectedCandleInterval], 120, 2);
-  spr.setTextDatum(MR_DATUM);
-  if(oldValue.toFloat() > value.toFloat())
-    spr.setTextColor(TFT_RED, TFT_BLACK);
-  else
-    spr.setTextColor(TFT_DARKGREEN, TFT_BLACK);
-  spr.drawString(formatStringToFloat(value, coinPrecision), 235, 2);
-  spr.unloadFont();
-  spr.pushSprite(0, candlesHeight + 1);
-}
-
 void showTicker() {
-  String change = formatStringPercChange(percChange);
-  spr.createSprite(240, 135);
-  spr.fillSprite(TFT_BLACK);
-  spr.drawLine(0, 90, 240, 90, TFT_DARKGREY);
-  spr.loadFont(NOTO_SANS_BOLD_15);
-  spr.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  spr.setTextDatum(ML_DATUM);
-  spr.drawString("24h:", 5, 105);
-  spr.drawString("Max: ", 120, 105);
-  spr.drawString("Min: ", 120, 125);
-  spr.setTextDatum(MR_DATUM);
-  spr.setTextColor(TFT_DARKGREEN, TFT_BLACK);
-  spr.drawString(formatStringToFloat(dailyHigh, coinPrecision), 235, 105);
-  spr.setTextColor(TFT_RED, TFT_BLACK);
-  spr.drawString(formatStringToFloat(dailyLow, coinPrecision), 235, 125);
-  spr.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  spr.setTextDatum(MC_DATUM);
-  String s = symbol;
-  s.toUpperCase();
-  spr.drawString(s, 120, 5);
-  if(false && !charging){
-    if(batteryLevel >=80){
-      spr.pushImage(208, 0,  29, 14, battery_04);
-    }else if(batteryLevel < 80 && batteryLevel >= 50 ){
-      spr.pushImage(208, 0,  29, 14, battery_03);
-    }else if(batteryLevel < 50 && batteryLevel >= 20 ){
-      spr.pushImage(208, 0,  29, 14, battery_02);
-    }else if(batteryLevel < 20 ){
-      spr.pushImage(208, 0,  29, 14, battery_01);
-    }
-  }
-
-  spr.unloadFont();
-  if(change[0] == '+')
-    spr.setTextColor(TFT_DARKGREEN, TFT_BLACK);
-  else
-    spr.setTextColor(TFT_RED, TFT_BLACK);
-  spr.setTextDatum(ML_DATUM);
-  spr.loadFont(NOTO_SANS_BOLD_15);
-  spr.drawString(formatStringToFloat(valChange, coinPrecision), 45, 125);
-  spr.drawString(change + "%", 45, 105);
-  spr.unloadFont();
-  spr.loadFont(TICKER_FONT);
-  if(oldValue.toFloat() > value.toFloat())
-    spr.setTextColor(TFT_RED, TFT_BLACK);
-  else
-    spr.setTextColor(TFT_DARKGREEN, TFT_BLACK);
-  spr.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-  String newValue = formatStringToFloat(value, coinPrecision);
-  spr.setTextDatum(ML_DATUM);
-  short fontWidth = 25;
-  spr.drawString(newValue, (240-(fontWidth*newValue.length())) / 2, 55);
-  spr.unloadFont();
-  spr.pushSprite(0, 0);
-}
-
-void showCmcLoading(){
-  spr.createSprite(240, 135);
-  spr.loadFont(ARIAL_BOLD_24);
-  spr.fillSprite(TFT_BLACK);
-  spr.pushImage(80, 10, 80, 80, tableIcon);
-  spr.setTextDatum(MC_DATUM);
-  spr.setTextColor(TFT_WHITE, TFT_BLACK);
-  spr.drawString("STATS", 120, 115);
-  spr.pushSprite(0, 0);
-  spr.unloadFont();
-  delay(1000);
-}
-
-void showCmc(){
-  spr.createSprite(240, 135);
-  spr.fillSprite(TFT_BLACK);
-  String perPage= "6";
-  String serverPath = coingekoApiBaseUrl + "/api/v3/coins/markets.json?vs_currency=usd&order=market_cap_desc&per_page=" + perPage + "&page=" + (cmcPage + 1) + "&sparkline=false&price_change_percentage=1h%2C24h%2C7d";
-  DynamicJsonDocument myResponse(8192);
-  HTTPClient http;
-  http.useHTTP10(true);
-  http.begin(serverPath);
-  http.GET();
-  deserializeJson(myResponse, http.getStream());
-  http.end();
-  short headerHeigh = 17;
-  short lineHeight = 20;
-  JsonArray myResponseObject = myResponse.as<JsonArray>();
-  int i = 0;
-  for(JsonVariant v : myResponseObject) {
-    spr.setTextDatum(ML_DATUM);
-    String s = (const char*) v["symbol"];
-    String p = String(i+1+(perPage.toInt()*(cmcPage)));
-    String cap = v["market_cap"];
-    cap.remove(cap.length() - 6);
-    String perc1 = String((double) myResponseObject[i]["price_change_percentage_1h_in_currency"]);
-    String perc2 = String((double) myResponseObject[i]["price_change_percentage_24h_in_currency"]);
-    String perc3 = String((double) myResponseObject[i]["price_change_percentage_7d_in_currency"]);
-    perc1 = formatStringToFloat(perc1, 2);
-    perc2 = formatStringToFloat(perc2, 2);
-    perc3 = formatStringToFloat(perc3, 2);
-    s.toUpperCase();
-    spr.setTextColor(TFT_YELLOW, TFT_BLACK);
-    spr.drawLine(0, headerHeigh + i*lineHeight, 240, headerHeigh + i*lineHeight, TFT_DARKGREY);
-    spr.loadFont(ARIAL_BOLD_15);
+  if(true || graphData.size() > 0){
+    spr.createSprite(240, 135);
+    spr.fillSprite(TFT_BLACK);
+    spr.loadFont(TICKER_FONT);
     spr.setTextColor(TFT_WHITE, TFT_BLACK);
-    spr.setTextDatum(MC_DATUM);
-    spr.drawString(p, 1, headerHeigh + (i*lineHeight) + 11);
-    spr.unloadFont();
-    spr.setTextDatum(ML_DATUM);
-    spr.loadFont(NOTO_SANS_BOLD_15);
-    spr.setTextColor(TFT_YELLOW, TFT_BLACK);
-    spr.drawString(s, 17, headerHeigh + (i*lineHeight) + 11);
-    spr.unloadFont();
-    spr.loadFont(ARIAL_15);
     spr.setTextDatum(MR_DATUM);
+    spr.drawString(value, 150, 0);
+
+    spr.loadFont(NOTO_SANS_15);
     spr.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    spr.drawString(cap, 99, headerHeigh + (i*lineHeight) + 11);
+    spr.setTextDatum(ML_DATUM);
+    spr.drawString("mg", 165, 0);
+    spr.drawLine(165, 18, 185,18, TFT_DARKGREY);
+    spr.drawString("dL", 165, 29);
+    // if(timestamp!=oldTimestamp){
+    //   spr.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    //   spr.setTextDatum(ML_DATUM);
+    //   spr.drawString("Now", 5, 26);
+    // }
+    short xo = 50;
+    short yo = 0;
+    if(trendArrow == "1"){
+      spr.fillTriangle(xo+155, yo, xo+175, yo, xo+165, yo+30, TFT_WHITE); // 1
+    }else if(trendArrow == "2"){
+      spr.fillTriangle(xo+150, yo+10, xo+165, yo, xo+175, yo+30, TFT_WHITE); // 2
+    }else if(trendArrow == "3"){
+      spr.fillTriangle(xo+150, yo+5, xo+180, yo+15, xo+150, yo+25, TFT_WHITE); // 3
+    }else if(trendArrow == "4"){
+      spr.fillTriangle(xo+150, yo+20, xo+175, yo, xo+165, yo+30, TFT_WHITE); // 4
+    }else if(trendArrow == "5"){
+      spr.fillTriangle(xo+155, yo+30, xo+175, yo+30, xo+165, yo, TFT_WHITE); // 5
+    }
     spr.unloadFont();
-    spr.loadFont(ARIAL_BOLD_15);
-    if(perc1.toFloat() < 0)
-      spr.setTextColor(TFT_RED, TFT_BLACK);
-    else
-      spr.setTextColor(TFT_DARKGREEN, TFT_BLACK);
-    spr.drawString(perc1, 146, headerHeigh + (i*lineHeight) + 11);
-    if(perc2.toFloat() < 0)
-      spr.setTextColor(TFT_RED, TFT_BLACK);
-    else
-      spr.setTextColor(TFT_DARKGREEN, TFT_BLACK);
-    spr.drawString(perc2, 193, headerHeigh + (i*lineHeight) + 11);
-    if(perc3.toFloat() < 0)
-      spr.setTextColor(TFT_RED, TFT_BLACK);
-    else
-      spr.setTextColor(TFT_DARKGREEN, TFT_BLACK);
-    spr.drawString(perc3, 240, headerHeigh + (i*lineHeight) + 11);
-    spr.unloadFont();
-    i++;
+    if(!charging){
+      if(batteryLevel >=80){
+        spr.pushImage(10, 0,  29, 14, battery_04);
+      }else if(batteryLevel < 80 && batteryLevel >= 50 ){
+        spr.pushImage(10, 0,  29, 14, battery_03);
+      }else if(batteryLevel < 50 && batteryLevel >= 20 ){
+        spr.pushImage(10, 0,  29, 14, battery_02);
+      }else if(batteryLevel < 20 ){
+        spr.pushImage(10, 0,  29, 14, battery_01);
+      }
+    }
+    spr.pushSprite(0, 0);
+    showGraph();
   }
-  spr.loadFont(ARIAL_BOLD_15);
-  spr.setTextColor(TFT_WHITE, TFT_BLACK);
-  spr.drawString("1h%", 146, 2);
-  spr.drawString("24h%", 193, 2);
-  spr.drawString("7d%", 240, 2);
-  spr.drawString("Cap(M)", 99, 2);
-  spr.unloadFont();
-  spr.drawLine(0, headerHeigh, 240, headerHeigh, TFT_WHITE);
-  spr.pushSprite(0, 0);
 }
 
-void showLoadingCmcHeader(){
+void showGraph(){
+  int minValue = INT_MAX;
+  int maxValue = INT_MIN;
+  graphData = doc["data"]["graphData"];
+  for (int i = 48 - points; i < graphData.size(); i++) {
+    int value = graphData[i]["ValueInMgPerDl"];
+    if (value < minValue) minValue = value;
+    if (value > maxValue) maxValue = value;
+  }
+
+  short targetLow = doc["data"]["connection"]["targetLow"];
+  short targetHigh = doc["data"]["connection"]["targetHigh"];
+  
+  if (minValue > 40 && minValue < 70)
+    minValue = 0;
+  else if (minValue > 40)
+    minValue = 40;
+  if (minValue > value.toInt())
+    minValue = value.toInt();
+  if (maxValue < targetHigh)
+    maxValue = targetHigh;
+  if (maxValue < value.toInt())
+    maxValue = value.toInt();
+
+  short th = 100 - ((targetHigh - minValue) * 100 / (maxValue-minValue));
+  short tl = 100 - ((targetLow - minValue) * 100 / (maxValue-minValue));
+
+  spr.createSprite(240, 100);
+
+  spr.fillSprite(TFT_BLACK);
+  spr.fillRect(0, th, 240, tl, TFT_DARKGREEN);
+
+  short v0;
+  short v1;
+  short y0;
+  short y1;
+  short x0;
+  short x1;
+
+  for (int i = 48 - points; i < graphData.size() - 1; i++) {
+    v0 = graphData[i]["ValueInMgPerDl"];
+    v1 = graphData[i+1]["ValueInMgPerDl"];
+    y0 = 100 - ((v0 - minValue) * 100 / (maxValue-minValue));
+    y1 = 100 - ((v1 - minValue) * 100 / (maxValue-minValue));
+    x0 = ((i-(48-points))*(240/points));
+    x1 = ((i+1-(48-points))*(240/points));
+    spr.drawLine(x0, y0, x1, y1, TFT_WHITE);
+    spr.drawLine(x0, y0-1, x1, y1-1, TFT_WHITE);
+    spr.drawLine(x0, y0+1, x1, y1+1, TFT_WHITE);
+  }
+  int v = value.toInt();
+  y0 = y1;
+  y1 = 100 - ((v - minValue) * 100 / (maxValue-minValue));
+  x0 = x1;
+  x1 = 236;
+  spr.drawLine(x0, y0, x1, y1, TFT_WHITE);
+  spr.drawLine(x0, y0-1, x1, y1-1, TFT_WHITE);
+  spr.drawLine(x0, y0+1, x1, y1+1, TFT_WHITE);
+
+  if (y1==0)
+    y1=3;
+  if(timestamp!=oldTimestamp)
+    spr.fillCircle(236, y1, 4, TFT_GREEN);
+  else
+    spr.fillCircle(236, y1, 4, TFT_YELLOW);
+  spr.drawCircle(236, y1, 5, TFT_WHITE);
+
   spr.loadFont(NOTO_SANS_BOLD_15);
-  spr.createSprite(120, 16);
   spr.setTextColor(TFT_WHITE, TFT_BLACK);
   spr.setTextDatum(ML_DATUM);
-  spr.drawString("Loading...         ", 5, 1);
-  spr.setTextDatum(MC_DATUM);
-  spr.pushSprite(0, 0);
+  spr.drawString(String(maxValue), 10, 2);
+  spr.drawLine(0, 0, 6, 0, TFT_WHITE);
+  spr.drawLine(0, 1, 6, 1, TFT_WHITE);
+
+  spr.drawString(String(minValue), 10, 94);
+  spr.drawLine(0, 96, 6, 96, TFT_WHITE);
+  spr.drawLine(0, 97, 6, 97, TFT_WHITE);
+
+  short vl=points/4;
+  for(int i=0; i < vl; i++){
+    short x = i*(240/vl);
+    spr.drawLine(x, 94 , x, 99, TFT_WHITE);
+    spr.drawLine(x+1, 94 , x+1, 99, TFT_WHITE);
+  }
+  spr.drawLine(238, 94 , 238, 99, TFT_WHITE);
+  spr.drawLine(239, 94 , 239, 99, TFT_WHITE);
+
+  spr.pushSprite(0, 37);
 }
 
-void showSymbol(){
-  String newSymbol = symbol;
-  newSymbol.toUpperCase();
-  spr.createSprite(240, 135);
-  spr.loadFont(ARIAL_BOLD_24);
-  spr.fillSprite(TFT_BLACK);
-  spr.pushImage(80, 10, 80, 80, pairIcon);
-  spr.setTextDatum(MC_DATUM);
-  spr.setTextColor(TFT_WHITE, TFT_BLACK);
-  spr.drawString(newSymbol, 120, 115);
-  spr.pushSprite(0, 0);
-  spr.unloadFont();
+void showLoading(){
+  if(graphData.size() > 0){
+    tft.loadFont(NOTO_SANS_BOLD_15);
+    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.setTextDatum(ML_DATUM);
+    if(charging)
+      tft.drawString("Loading", 5, 5);
+    else
+      tft.drawString("Loading", 5, 26);
+    tft.unloadFont();
+  }
 }
 
 bool detectAP(void) {
@@ -1054,3 +809,20 @@ void readBatteryLevel(){
     batteryLevel = BL.getBatteryChargeLevel();
   }
 }
+String sha256hex(const String& input) {
+  byte hash[32];
+  mbedtls_sha256_context ctx;
+  mbedtls_sha256_init(&ctx);
+  mbedtls_sha256_starts_ret(&ctx, 0); // 0 = SHA-256, 1 = SHA-224
+  mbedtls_sha256_update_ret(&ctx, (const unsigned char *)input.c_str(), input.length());
+  mbedtls_sha256_finish_ret(&ctx, hash);
+  mbedtls_sha256_free(&ctx);
+
+  String output = "";
+  for (int i = 0; i < 32; i++) {
+    if (hash[i] < 16) output += "0";
+    output += String(hash[i], HEX);
+  }
+  return output;
+}
+
