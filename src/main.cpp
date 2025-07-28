@@ -93,8 +93,8 @@ void setup()
   Config.autoReconnect = true;
   Config.reconnectInterval = 1;
   Config.ota = AC_OTA_BUILTIN;
-  Config.title = "CryptoGadgets " + zticker_version;
-  Config.apid = "ToTheMoon";
+  Config.title = "T1D-Sucks";
+  Config.apid = "T1D-Sucks";
   /* Config.psk  = "12345678"; */
   Config.menuItems = AC_MENUITEM_CONFIGNEW | AC_MENUITEM_UPDATE;
   Config.boundaryOffset = EEPROM_SIZE;
@@ -131,17 +131,38 @@ void setup()
       ledcWrite(pwmLedChannelTFT, convertedBrightness);
       if(username==""){
         Serial.println("Account not connected");
+        Serial.println("http://" + WiFi.localIP().toString() + "/setup");
         spr.createSprite(240, 135);
-        spr.loadFont(ARIAL_BOLD_24);
+        String url = "http://" + WiFi.localIP().toString() + "/setup";
+        const char* qrUrl = url.c_str();
+        QRCode qrcode;
+        uint8_t qrcodeData[qrcode_getBufferSize(3)];  // versione 3 = 29x29
+        qrcode_initText(&qrcode, qrcodeData, 3, ECC_LOW, qrUrl);
+        int border = 2;
+        int size = 4;
+        int qrSizeInPixels = (qrcode.size + 2 * border) * size;
+        // int offsetX = (tft.width() - qrSizeInPixels) / 2;
+        int offsetX = 104;
+        int offsetY = (tft.height() - qrSizeInPixels) / 2;
         spr.fillSprite(TFT_BLACK);
+        spr.fillRect(offsetX, offsetY, qrSizeInPixels, qrSizeInPixels, TFT_BLACK);
+        for (int y = 0; y < qrcode.size; y++) {
+          for (int x = 0; x < qrcode.size; x++) {
+            int color = qrcode_getModule(&qrcode, x, y) ? TFT_WHITE : TFT_BLACK;
+            spr.fillRect(offsetX + (x + border) * size, offsetY + (y + border) * size, size, size, color);
+          }
+        }
+        spr.createSprite(240, 135);
         spr.setTextDatum(MC_DATUM);
-        spr.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        spr.drawString("Please browse to", 120, 40);
-        spr.loadFont(ARIAL_BOLD_15);
-        spr.setTextColor(TFT_DARKGREEN, TFT_BLACK);
-        spr.drawString("http://" + WiFi.localIP().toString() + "/setup", 120, 80);
+        spr.loadFont(NOTO_SANS_BOLD_15);
+        // spr.loadFont(NOTO_SANS_BOLD_15);
+        spr.setTextColor(TFT_WHITE, TFT_BLACK);
+        spr.drawString("Scan this", 60, 20);
+        spr.drawString("QR Code", 60, 45);
+        spr.drawString("to link", 60, 70);
+        spr.drawString("your", 60, 95);
+        spr.drawString("account", 60, 120);
         spr.pushSprite(0,0);
-        spr.unloadFont();
       }
       if (WiFi.getMode() & WIFI_AP) {
         WiFi.softAPdisconnect(true);
@@ -259,7 +280,7 @@ bool startCP(IPAddress ip){
   spr.drawString("Password:", 115, 16 + 50);
   spr.setTextDatum(ML_DATUM);
   spr.setTextColor(TFT_GREEN, TFT_BLACK);
-  spr.drawString("ToTheMoon", 125, 16 + 25);
+  spr.drawString("T1D-Sucks", 125, 16 + 25);
   spr.drawString("12345678", 125, 16 + 50);
   spr.setTextDatum(MC_DATUM);
   spr.setTextColor(TFT_WHITE, TFT_BLACK);
@@ -308,7 +329,7 @@ void setDefaultValues() {
   spr.pushSprite(0, 0);
   spr.unloadFont();
 
-  brightness = 21;
+  brightness = 41;
   username="";
   password="";
   sha256AccountId="";
@@ -547,7 +568,6 @@ void readConfig(){
     postData += "\"email\":\"" + username + "\",";
     postData += "\"password\":\"" + password + "\"";
     postData += "}";
-    Serial.println(postData);
     int httpResponseCode = http.POST(postData);
     Serial.println(postData);
     if (httpResponseCode > 0) {
@@ -661,6 +681,8 @@ void showTicker() {
       }else if(batteryLevel < 20 ){
         spr.pushImage(10, 0,  29, 14, battery_01);
       }
+    }else{
+      spr.pushImage(10, 0,  29, 14, battery_04);
     }
     spr.pushSprite(0, 0);
     showGraph();
@@ -679,23 +701,26 @@ void showGraph(){
 
   short targetLow = doc["data"]["connection"]["targetLow"];
   short targetHigh = doc["data"]["connection"]["targetHigh"];
-  
-  if (minValue > 40 && minValue < 70)
-    minValue = 0;
-  else if (minValue > 40)
-    minValue = 40;
+  //
+  // if (minValue > 40 && minValue < 70)
+  //   minValue = 0;
+  // else if (minValue > 40)
+  //   minValue = 40;
+  if (minValue > targetLow)
+    minValue = targetLow;
   if (minValue > value.toInt())
     minValue = value.toInt();
   if (maxValue < targetHigh)
     maxValue = targetHigh;
   if (maxValue < value.toInt())
     maxValue = value.toInt();
+  // maxValue = ((maxValue + 19) / 20) * 20;
+  // minValue = (minValue / 20) * 20;
 
   short th = 100 - ((targetHigh - minValue) * 100 / (maxValue-minValue));
   short tl = 100 - ((targetLow - minValue) * 100 / (maxValue-minValue));
 
   spr.createSprite(240, 100);
-
   spr.fillSprite(TFT_BLACK);
   spr.fillRect(0, th, 240, tl, TFT_DARKGREEN);
 
@@ -741,20 +766,20 @@ void showGraph(){
   spr.drawLine(0, 0, 6, 0, TFT_WHITE);
   spr.drawLine(0, 1, 6, 1, TFT_WHITE);
 
-  spr.drawString(String(minValue), 10, 94);
-  spr.drawLine(0, 96, 6, 96, TFT_WHITE);
-  spr.drawLine(0, 97, 6, 97, TFT_WHITE);
+  spr.drawString(String(minValue), 10, 96);
+  spr.drawLine(0, 98, 6, 98, TFT_WHITE);
+  spr.drawLine(0, 99, 6, 99, TFT_WHITE);
 
   short vl=points/4;
   for(int i=0; i < vl; i++){
     short x = i*(240/vl);
-    spr.drawLine(x, 94 , x, 99, TFT_WHITE);
-    spr.drawLine(x+1, 94 , x+1, 99, TFT_WHITE);
+    spr.drawLine(x, 95 , x, 99, TFT_WHITE);
+    spr.drawLine(x+1, 95 , x+1, 99, TFT_WHITE);
   }
   spr.drawLine(238, 94 , 238, 99, TFT_WHITE);
   spr.drawLine(239, 94 , 239, 99, TFT_WHITE);
 
-  spr.pushSprite(0, 37);
+  spr.pushSprite(0, 35);
 }
 
 void showLoading(){
@@ -762,10 +787,7 @@ void showLoading(){
     tft.loadFont(NOTO_SANS_BOLD_15);
     tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
     tft.setTextDatum(ML_DATUM);
-    if(charging)
-      tft.drawString("Loading", 5, 5);
-    else
-      tft.drawString("Loading", 5, 26);
+    tft.drawString("Loading", 5, 26);
     tft.unloadFont();
   }
 }

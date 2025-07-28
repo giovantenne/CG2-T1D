@@ -4,6 +4,7 @@
 #include <EEPROM.h>
 #include <TFT_eSPI.h>
 #include <SPI.h>
+#include <qrcode.h>
 #include "SPIFFS.h"
 #include "WiFi.h"
 #include "Button2.h"
