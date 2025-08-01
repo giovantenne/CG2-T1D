@@ -5,6 +5,7 @@
 #include <TFT_eSPI.h>
 #include <SPI.h>
 #include <qrcode.h>
+#include "esp_https_ota.h"
 #include "SPIFFS.h"
 #include "WiFi.h"
 #include "Button2.h"
@@ -21,6 +22,7 @@
 #include "icons/errorIcon.h"
 #include "icons/wifiOff.h"
 #include <Pangodream_18650_CL.h>
+#include "esp_task_wdt.h"
 /* Use 'processing' to generate the fonts */
 #include "fonts/NotoSansBold15.h"
 #include "fonts/NotoSans15.h"
@@ -56,6 +58,9 @@ void showGraph();
 void showLoading();
 bool isValidEmail(String s);
 String sha256hex(const String& input);
+void checkForOtaUpdate();
+void displayOtaUpdate();
+void performOtaUpdate(String url, String ssl_ca);
 
 
 #define EEPROM_SIZE 512

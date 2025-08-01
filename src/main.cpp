@@ -1,7 +1,7 @@
 // 240x135
 #include "utils.h"
 
-static const String zticker_version = "vT1D";
+static const String zticker_version = "vT1D.3";
 static const String apiBaseUrl = "https://api.libreview.io";
 
 String initialize2(AutoConnectAux&, PageArgument&);
@@ -11,8 +11,8 @@ TaskHandle_t Task1;
 TaskHandle_t Task2;
 Button2 btn1(BUTTON_1);
 Button2 btn2(BUTTON_2);
-int btn1Click = false;
-int btn2Click = false;
+bool btn1Click = false;
+bool btn2Click = false;
 WebServer Server;
 AutoConnect Portal(Server);
 AutoConnectConfig Config;
@@ -23,6 +23,7 @@ String percChange;
 DynamicJsonDocument doc(20480);
 String timestamp;
 String oldTimestamp;
+short missingUpdates;
 
 short brightness = 21;
 String username;
@@ -34,13 +35,13 @@ String patientId;
 
 JsonArray graphData;
 bool isLoading=false;
-int batteryLevel;
+short batteryLevel;
 bool charging = false;
-int points = 48; // MAX 48
+short points = 48; // MAX 48
 // Setting PWM properties, do not change this!
-const int pwmFreq = 5000;
-const int pwmResolution = 8;
-const int pwmLedChannelTFT = 0;
+const short pwmFreq = 5000;
+const short pwmResolution = 8;
+const short pwmLedChannelTFT = 0;
 bool comingFromCP;
 unsigned long tmDetection;
 const unsigned long scanInterval = 120 * 1000;
@@ -123,6 +124,7 @@ void setup()
       spr.unloadFont();
       Serial.println("Connection Opened");
       delay(3000);
+      checkForOtaUpdate();
       readBatteryLevel();
       Portal.join({aux2, aux1, aux1Execute, aux3});
       readConfig();
@@ -208,6 +210,7 @@ void loop()
           points = 48;
         Serial.println("zoom...");
         timedTaskmDetection = -1000000000;
+        missingUpdates--;
       }
 
       if (username != "" && (millis() - timedTaskmDetection > timedTaskInterval)) {
@@ -369,7 +372,6 @@ bool fetchData() {
     String payload = http.getString();
     // Serial.println(payload);
 
-    const size_t capacity = 20 * 1024;
 
     DeserializationError error = deserializeJson(doc, payload);
     if (error) {
@@ -431,7 +433,6 @@ void saveSettings(void){
     if (httpResponseCode > 0) {
       DynamicJsonDocument authDoc(20480);
       String authPayload = http.getString();
-      const size_t capacity = 20 * 1024;
       DeserializationError error = deserializeJson(authDoc, authPayload);
       if (error || authDoc["status"] != 0){
         showInvalidParams();
@@ -574,7 +575,6 @@ void readConfig(){
       DynamicJsonDocument authDoc(20480);
       String authPayload = http.getString();
       // Serial.println(authPayload);
-      const size_t capacity = 20 * 1024;
       DeserializationError error = deserializeJson(authDoc, authPayload);
       if (error || authDoc["status"] != 0){
         setDefaultValues();
@@ -612,6 +612,7 @@ void button_init()
       readBatteryLevel();
       timedTaskmDetection = millis();
       Serial.println("Execute forced task...");
+      missingUpdates--;
       showLoading();
       fetchData();
       showTicker();
@@ -652,11 +653,6 @@ void showTicker() {
     spr.drawString("mg", 165, 0);
     spr.drawLine(165, 18, 185,18, TFT_DARKGREY);
     spr.drawString("dL", 165, 29);
-    // if(timestamp!=oldTimestamp){
-    //   spr.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    //   spr.setTextDatum(ML_DATUM);
-    //   spr.drawString("Now", 5, 26);
-    // }
     short xo = 50;
     short yo = 0;
     if(trendArrow == "1"){
@@ -692,6 +688,7 @@ void showTicker() {
 void showGraph(){
   int minValue = INT_MAX;
   int maxValue = INT_MIN;
+
   graphData = doc["data"]["graphData"];
   for (int i = 48 - points; i < graphData.size(); i++) {
     int value = graphData[i]["ValueInMgPerDl"];
@@ -722,7 +719,16 @@ void showGraph(){
 
   spr.createSprite(240, 100);
   spr.fillSprite(TFT_BLACK);
-  spr.fillRect(0, th, 240, tl, TFT_DARKGREEN);
+
+  if(timestamp!=oldTimestamp)
+    missingUpdates = 0;
+  else
+    missingUpdates++;
+
+  if(missingUpdates < 5)
+    spr.fillRect(0, th, 240, tl, TFT_DARKGREEN);
+  else
+    spr.fillRect(0, th, 240, tl, TFT_DARKGREY);
 
   short v0;
   short v1;
@@ -753,10 +759,12 @@ void showGraph(){
 
   if (y1==0)
     y1=3;
-  if(timestamp!=oldTimestamp)
+
+  if(missingUpdates==0)
     spr.fillCircle(236, y1, 4, TFT_GREEN);
   else
     spr.fillCircle(236, y1, 4, TFT_YELLOW);
+
   spr.drawCircle(236, y1, 5, TFT_WHITE);
 
   spr.loadFont(NOTO_SANS_BOLD_15);
@@ -846,5 +854,56 @@ String sha256hex(const String& input) {
     output += String(hash[i], HEX);
   }
   return output;
+}
+void checkForOtaUpdate(){
+  Serial.println("checkForOtaUpdate");
+  int dotIndex = zticker_version.indexOf('.');
+  String suffix = zticker_version.substring(dotIndex + 1);
+  int versionNumber = suffix.toInt();
+  versionNumber++;
+  String newVersion = String(versionNumber);
+  HTTPClient http;
+  String url = "http://cg-fw.b-cdn.net/CG2-T1D/" + newVersion + ".bin";
+  http.begin(url);
+  int httpCode = http.sendRequest("HEAD");
+  if (httpCode == 200) {
+    displayOtaUpdate();
+    performOtaUpdate(url, "");
+  }
+  http.end();  // Chiude la connessione
+}
+
+void displayOtaUpdate(){
+  Serial.println("displayOtaUpdate");
+  spr.createSprite(240, 135);
+  spr.loadFont(ARIAL_BOLD_24);
+  spr.fillSprite(TFT_BLACK);
+  spr.loadFont(ARIAL_BOLD_24);
+  spr.setTextDatum(MC_DATUM);
+  spr.setTextColor(TFT_WHITE, TFT_BLACK);
+  spr.drawString("Firmware update", 120, 40);
+  spr.drawString("in progress...", 120, 80);
+  spr.pushSprite(0,0);
+  spr.unloadFont();
+}
+
+void performOtaUpdate(String url, String ssl_ca){
+  Serial.println("performOtaUpdate");
+
+  esp_task_wdt_init(60, true);
+
+  esp_http_client_config_t config = {};
+  config.url = url.c_str();
+  config.cert_pem = (char *)ssl_ca.c_str();
+  config.skip_cert_common_name_check = true;
+
+  esp_err_t ret = esp_https_ota(&config);
+
+  if (ret == ESP_OK) {
+    Serial.println("OTA SUCCESS!");
+    esp_restart();
+  } else {
+    Serial.println("OTA ESP_FAIL");
+  }
 }
 
