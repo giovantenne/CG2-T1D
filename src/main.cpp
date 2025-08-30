@@ -1,7 +1,7 @@
 // 240x135
 #include "utils.h"
 
-static const String zticker_version = "vT1D.3";
+static const String zticker_version = "vT1D.4";
 static const String apiBaseUrl = "https://api.libreview.io";
 
 String initialize2(AutoConnectAux&, PageArgument&);
@@ -210,7 +210,7 @@ void loop()
           points = 48;
         Serial.println("zoom...");
         timedTaskmDetection = -1000000000;
-        missingUpdates--;
+        // missingUpdates--;
       }
 
       if (username != "" && (millis() - timedTaskmDetection > timedTaskInterval)) {
@@ -612,7 +612,7 @@ void button_init()
       readBatteryLevel();
       timedTaskmDetection = millis();
       Serial.println("Execute forced task...");
-      missingUpdates--;
+      // missingUpdates--;
       showLoading();
       fetchData();
       showTicker();
@@ -763,7 +763,7 @@ void showGraph(){
   if(missingUpdates==0)
     spr.fillCircle(236, y1, 4, TFT_GREEN);
   else
-    spr.fillCircle(236, y1, 4, TFT_YELLOW);
+    spr.fillCircle(236, y1, 4, TFT_ORANGE);
 
   spr.drawCircle(236, y1, 5, TFT_WHITE);
 
