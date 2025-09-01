@@ -210,7 +210,7 @@ void loop()
           points = 48;
         Serial.println("zoom...");
         timedTaskmDetection = -1000000000;
-        // missingUpdates--;
+        missingUpdates--;
       }
 
       if (username != "" && (millis() - timedTaskmDetection > timedTaskInterval)) {
@@ -612,7 +612,7 @@ void button_init()
       readBatteryLevel();
       timedTaskmDetection = millis();
       Serial.println("Execute forced task...");
-      // missingUpdates--;
+      missingUpdates--;
       showLoading();
       fetchData();
       showTicker();
@@ -760,7 +760,7 @@ void showGraph(){
   if (y1==0)
     y1=3;
 
-  if(missingUpdates==0)
+  if(timestamp!=oldTimestamp)
     spr.fillCircle(236, y1, 4, TFT_GREEN);
   else
     spr.fillCircle(236, y1, 4, TFT_ORANGE);
