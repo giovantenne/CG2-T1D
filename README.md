@@ -1,44 +1,40 @@
-# CryptoGadgets v2
+# CG2-T1D
 
-This is a **free and open source project** that let you check the bitcoin price in real time with a small piece of hardware.
+This is a **free and open source project** that lets you check your CGM-detected glucose values in real time with a small piece of hardware.
 
-Unlike similar devices this one uses WebSockets and updates the display real-time, several time per second!
+This is a remix of my other project CryptoGadgets v2 (CG2) that I created for my personal use. You can find the original project [here](https://github.com/giovantenne/CG2)
 
-I first created these objects for myself, playing with 3D modeling and ESP32 software development.
-
-[![See the details here](https://www.datocms-assets.com/56675/1680892734-btc-edited-edited.png?fm=webp&w=610)](https://www.cryptogadgets.net/CG2/cryptocurrency-ticker-v2-real-time-bitcoin-btc-price)
+![WiFi Desktop glucose monitor device](https://www.datocms-assets.com/56675/1757097907-pxl_20250905_170517849.jpg?fm=webp&w=610)
 
 
 ## Features
 
 - WiFi powered. No PC needed
-- True real-time price
-- Display up to 9 digits
+- Real time glucose level display
+- 3 Levels of zoom (12 / 6 / 3 hours timeframe)
 - Adjustable display brightness
-- 24h price change
-- Support for more than 600 pairs
+- Autorefresh every 60 seconds
 - Upgradable firmware
+- 5 minutes of missing updates indicator
 
 ## User manual
 
 This is a stand-alone device. This means that you don’t need a PC  to get it running and that you can simply power it through the micro-usb port. Before doing so  you will need to connect it to your WiFi network by following these simple steps:
 
-- Power-up your device. When setting it up for the first time, and everytime it is not able to connect to an existing WiFi network, the device will start in “access-point/captive-portal" mode and it will broadcast the WiFi SSID “ToTheMoon”.
-- Connect your phone/computer to the “ToTheMoon” WiFi network using the following password: 12345678
+- Power-up your device. When setting it up for the first time, and everytime it is not able to connect to an existing WiFi network, the device will start in “access-point/captive-portal" mode and it will broadcast the WiFi SSID “T1D-Sucks”.
+- Connect your phone/computer to the “T1D-Sucks” WiFi network using the following password: 12345678
 - Your phone/computer should prompt you with a login/welcome page. If not you can simply browse to the following address: http://172.217.28.1. You should then be able to see and access the device setup interface.
 - On the menu click “Configure new AP”. You should then be presented with a list of existing WiFi networks.
 - Click on your network SSID name, enter your passphrase and click “Apply”.
+- Browse to the QR code displayed on the screen to enter your CGM credentials (currently only Abbott Freestyle Libre 2 is supported)
 
-
-After the first setup, may  you want to change your currency pair, adjust the number of decimal digits or change the display brightness, you can simply browse to the address shown on the display during the booting process after the logo. Before doing so, please ensure  to be connected to the same WiFi network.
-
-You also can easily update the device firmware by downloading the latest version, if needed, from the following link: https://github.com/giovantenne/CG2/releases
+You also can easily update the device firmware by downloading the latest version, if needed, from the following link: https://github.com/giovantenne/CG2-T1D/releases
 
 You can check the firmware version you are currently running  by simply  looking at the display during the booting process, below the bitcoin logo.
 
 
-## Unboxing and setup video
-[![See the video here](https://www.datocms-assets.com/56675/1708071548-cryptocurrency-ticker-v2-real-time-bitcoin-btc-price.png?auto=format&w=610)](https://www.youtube.com/watch?v=KbjArYrW6Es)
+## Video
+[![See the video here](https://www.datocms-assets.com/56675/1757099976-pxl_20250905_184210330.jpg?fm=webp&w=610)](https://www.youtube.com/watch?v=8-MzdPxjns4)
 
 
 ## Requirements
@@ -47,25 +43,27 @@ You can check the firmware version you are currently running  by simply  looking
 
 ## Download and load the firmware
 
-The easiest way to flash firmware. Build your own CGv2 using the following firmware flash tool:
+The easiest way to flash firmware. Build your own CG2-T1D using the following firmware flash tool:
 
-- Download the latest firmware from the [Releases](https://github.com/giovantenne/CG2/releases) page
-- Download the [partitions.bin](https://github.com/giovantenne/CG2/raw/refs/heads/master/bin/partitions.bin) file
-- Download the [bootloader.bin](https://github.com/giovantenne/CG2/raw/refs/heads/master/bin/bootloader.bin) file
+- Download the latest firmware from the [Releases](https://github.com/giovantenne/CG2-T1D/releases) page
+- Download the [partitions.bin](https://github.com/giovantenne/CG2-T1D/raw/refs/heads/master/bin/partitions.bin) file
+- Download the [bootloader.bin](https://github.com/giovantenne/CG2-T1D/raw/refs/heads/master/bin/bootloader.bin) file
 - Open the [ESP Web Tool](https://esp.huhn.me/) to flash the firmware directly from your browser  (recommended via Google Chrome incognito mode)
 - Connect your device, set the table as shown in the image below, and click _PROGRAM_:
 
-![ESP Web Tool Flash table](https://github.com/giovantenne/CG2/blob/master/bin/ESPWebTool.png)
+![ESP Web Tool Flash table](https://github.com/giovantenne/CG2-T1D/blob/master/bin/ESPWebTool.png)
 
 ## Build from source and load the firmware
 - Install [PlatformIO Core](https://platformio.org/install/cli)
 - Connect the board via USB
-- Clone this repository `git clone https://github.com/giovantenne/CG2`
-- Run `cd CG2 && pio run -t upload`
+- Clone this repository `git clone https://github.com/giovantenne/CG2-T1D`
+- Run `cd CG2-T1D && pio run -t upload`
 
-## Donations/Project contributions
-If you would like to contribute and help dev team with this project you can send a donation to the following LN address ⚡`cg@pos.btcpayserver.it`⚡ or on-chain `bc1qdx6r7z2c2dtdfa2tn9a2u4rc3g5myyfquqq97x`
+## Disclaimer
 
-If you want to order a fully assembled multipurpose V2 or V3 devices you can contribute to my job at https://www.cryptogadgets.net
-
-Enjoy!
+ - CG2-T1D is not intended to serve as or to replace the real-time display of CGM data of the primary device or standard blood glucose home monitoring. All therapeutic decisions, including those regarding calculating insulin or other drug dosages, should be based on blood glucose measurements obtained from a blood glucose meter and not on data from the CG2-T1D device.
+- The CG2-T1D is not intended to analyze, interpret, or modify the CGM data received from the primary device.
+- The CG2-T1D is not intended to replace self-monitoring practices as advised by a physician.
+- THIS SOFTWARE MUST NOT BE USED TO MAKE MEDICAL DECISIONS
+- There is no warranty for this software
+- This software is not supported or endorsed by Abbott, Libre or any other party

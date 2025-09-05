@@ -124,7 +124,7 @@ void setup()
       spr.unloadFont();
       Serial.println("Connection Opened");
       delay(3000);
-      checkForOtaUpdate();
+      // checkForOtaUpdate();
       readBatteryLevel();
       Portal.join({aux2, aux1, aux1Execute, aux3});
       readConfig();
