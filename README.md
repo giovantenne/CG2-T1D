@@ -1,4 +1,4 @@
-# CG2-T1D
+# WiFi Desktop glucose monitor device
 
 This is a **free and open source project** that lets you check your CGM-detected glucose values in real time with a small piece of hardware.
 
