@@ -14,7 +14,7 @@ This is a remix of my other project CryptoGadgets v2 (CG2) that I created for my
 - 3 zoom levels to view the past 12, 6, or 3 hours
 - Adjustable brightness for any environment
 - Automatic refresh every 60 seconds
-- Missing data vusual alert if no updates are received for more than 5 minutes
+- Missing data visual-alert if no updates are received for more than 5 minutes
 - Upgradable firmware for future features and improvements
 
 ## User manual
