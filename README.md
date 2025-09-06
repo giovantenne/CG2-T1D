@@ -9,17 +9,17 @@ This is a remix of my other project CryptoGadgets v2 (CG2) that I created for my
 
 ## Features
 
-- WiFi powered. No PC needed
-- Real time glucose level display
-- 3 Levels of zoom (12 / 6 / 3 hours timeframe)
-- Adjustable display brightness
-- Autorefresh every 60 seconds
-- Upgradable firmware
-- 5 minutes of missing updates indicator
+- Built-in WiFi – works independently, no PC required
+- Real-time glucose level display
+- 3 zoom levels to view the past 12, 6, or 3 hours
+- Adjustable brightness for any environment
+- Automatic refresh every 60 seconds
+- Missing data vusual alert if no updates are received for more than 5 minutes
+- Upgradable firmware for future features and improvements
 
 ## User manual
 
-This is a stand-alone device. This means that you don’t need a PC  to get it running and that you can simply power it through the micro-usb port. Before doing so  you will need to connect it to your WiFi network by following these simple steps:
+This is a stand-alone device. This means that you don’t need a PC  to get it running and that you can simply power it through the usb-c port. Before doing so  you will need to connect it to your WiFi network by following these simple steps:
 
 - Power-up your device. When setting it up for the first time, and everytime it is not able to connect to an existing WiFi network, the device will start in “access-point/captive-portal" mode and it will broadcast the WiFi SSID “T1D-Sucks”.
 - Connect your phone/computer to the “T1D-Sucks” WiFi network using the following password: 12345678
@@ -30,7 +30,7 @@ This is a stand-alone device. This means that you don’t need a PC  to get it r
 
 You also can easily update the device firmware by downloading the latest version, if needed, from the following link: https://github.com/giovantenne/CG2-T1D/releases
 
-You can check the firmware version you are currently running  by simply  looking at the display during the booting process, below the bitcoin logo.
+You can check the firmware version you are currently running  by simply  looking at the display during the booting process, below the logo.
 
 
 ## Video
