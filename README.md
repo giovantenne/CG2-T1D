@@ -40,6 +40,7 @@ You can check the firmware version you are currently running  by simply  looking
 ## Requirements
 - TTGO T-Display - [here](https://www.lilygo.cc/products/lilygo%C2%AE-ttgo-t-display-1-14-inch-lcd-esp32-control-board)
 - 3D BOX - [here](stl/)
+- 3.7V 1100mAh LiPo Battery with Micro JST 1.25 connector (optional)
 
 ## Download and load the firmware
 
