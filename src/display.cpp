@@ -117,11 +117,11 @@ static void showGraphImpl(const AppState& state){
   spr.fillSprite(TFT_BLACK);
 
   if(state.runtime.currentTimestamp!=state.runtime.lastTimestamp)
-    ;
+    missingUpdateCount = 0;
   else
-    ;
+    missingUpdateCount++;
 
-  if(state.runtime.missingUpdateCount < 5)
+  if(missingUpdateCount < 5)
     spr.fillRect(0, th, 240, tl, TFT_DARKGREEN);
   else
     spr.fillRect(0, th, 240, tl, TFT_DARKGREY);
