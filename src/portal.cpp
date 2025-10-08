@@ -1,4 +1,3 @@
-#include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include "app_state.h"
 #include "portal.h"
@@ -89,61 +88,48 @@ void handleSaveSettings(void){
   String newPassword = Server.arg("inputPassword");
   int newPatientIndex = Server.arg("inputPatientIndex").toInt();
 
-  if(isValidNumber(Server.arg("inputPatientIndex"))){
-    HTTPClient http;
-    http.begin(apiBaseUrl + "/llu/auth/login");
-    http.addHeader("product", "llu.android");
-    http.addHeader("version", "4.15.0");
-    http.addHeader("Content-Type", "application/json");
-    http.addHeader("Accept", "application/json");
-    String postData = "{";
-    postData += "\"email\":\"" + newEmail + "\",";
-    postData += "\"password\":\"" + newPassword + "\"";
-    postData += "}";
-    int httpResponseCode = http.POST(postData);
+  bool requestSuccessful = false;
+  bool hasValidIndex = isValidNumber(Server.arg("inputPatientIndex"));
 
-    if (httpResponseCode > 0) {
-      JsonDocument authDoc;
-      String authPayload = http.getString();
-      DeserializationError error = deserializeJson(authDoc, authPayload);
-      if (error || authDoc["status"] != 0){
-        handleInvalidParams();
-      }else{
-        String t = authDoc["data"]["authTicket"]["token"];
-        String ai = authDoc["data"]["user"]["id"];
-        http.end();
-        http.begin(apiBaseUrl + "/llu/connections");
-        http.addHeader("product", "llu.android");
-        http.addHeader("version", "4.15.0");
-        http.addHeader("Content-Type", "application/json");
-        http.addHeader("Accept", "application/json");
-        http.addHeader("Authorization", "Bearer " + t);
-        http.addHeader("account-id", sha256hex(ai));
-        http.GET();
-        authPayload = http.getString();
+  if (hasValidIndex) {
+    ApiAuthResult authResult;
+    if (apiLogin(newEmail, newPassword, authResult)) {
+      DynamicJsonDocument connectionsDoc(8192);
+      if (apiFetchConnections(authResult.token, authResult.accountSha256, connectionsDoc)) {
+        JsonArray connections = connectionsDoc["data"].as<JsonArray>();
+        if (!connections.isNull()) {
+          size_t connectionCount = connections.size();
+          if (connectionCount > 0 && newPatientIndex >= 0 && static_cast<size_t>(newPatientIndex) < connectionCount) {
+            JsonVariant selected = connections[newPatientIndex];
+            String patientId = selected["patientId"].as<String>();
+            if (patientId.length() > 0) {
+              JsonVariant connectionInfo = selected["connection"];
+              String firstName = connectionInfo["firstName"].as<String>();
+              String lastName = connectionInfo["lastName"].as<String>();
+              patientName = firstName + " " + lastName;
+              patientName.trim();
+              if (patientName.length() == 0) {
+                patientName = authResult.userFirstName + " " + authResult.userLastName;
+                patientName.trim();
+              }
 
-        error = deserializeJson(authDoc, authPayload);
-        String pi = authDoc["data"][newPatientIndex]["patientId"];
-        connectionPatientId = pi;
+              configStoreSetCredentials(newEmail, newPassword);
+              configStoreSetAccountSha256(authResult.accountSha256);
+              configStoreSetPatientId(patientId);
+              configStoreSetToken(authResult.token);
+              configStorePersist();
 
-        String s1 = authDoc["data"]["connection"]["firstName"];
-        String s2 = authDoc["data"]["connection"]["lastName"];
-        patientName = s1 + " " + s2;
-
-        configStoreSetCredentials(newEmail, newPassword);
-        configStoreSetAccountSha256(sha256hex(ai));
-        configStoreSetPatientId(pi);
-        configStoreSetToken(t);
-        configStorePersist();
-
-        delay(3000);
-
-        Server.sendHeader("Location", "/setup?valid=true");
+              requestSuccessful = true;
+            }
+          }
+        }
       }
+    }
+  }
 
-    } else {
-      handleInvalidParams();
-    } 
+  if (requestSuccessful) {
+    delay(3000);
+    Server.sendHeader("Location", "/setup?valid=true");
   } else {
     handleInvalidParams();
   }

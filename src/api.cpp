@@ -7,16 +7,106 @@
 #include "board.h"
 #include "mbedtls/sha256.h"
 
+namespace {
+const char* kProductHeader = "llu.android";
+const char* kJsonMimeType = "application/json";
+const char* kConnectionsVersion = "4.16.0";
+
+void applyCommonHeaders(HTTPClient& http, const char* version) {
+  http.addHeader("product", kProductHeader);
+  http.addHeader("version", version);
+  http.addHeader("Content-Type", kJsonMimeType);
+  http.addHeader("Accept", kJsonMimeType);
+}
+
+bool beginJsonRequest(HTTPClient& http, const String& url, const char* version) {
+  if (!http.begin(url)) {
+    return false;
+  }
+  applyCommonHeaders(http, version);
+  return true;
+}
+}  // namespace
+
+bool apiLogin(const String& email, const String& password, ApiAuthResult& result) {
+  HTTPClient http;
+  if (!beginJsonRequest(http, apiBaseUrl + "/llu/auth/login", kConnectionsVersion)) {
+    return false;
+  }
+
+  String postData = "{";
+  postData += "\"email\":\"" + email + "\",";
+  postData += "\"password\":\"" + password + "\"";
+  postData += "}";
+
+  int httpResponseCode = http.POST(postData);
+  if (httpResponseCode <= 0) {
+    http.end();
+    return false;
+  }
+
+  String authPayload = http.getString();
+  http.end();
+
+  DynamicJsonDocument authDoc(4096);
+  DeserializationError error = deserializeJson(authDoc, authPayload);
+  if (error) {
+    return false;
+  }
+
+  if (authDoc["status"].as<int>() != 0) {
+    return false;
+  }
+
+  result.token = authDoc["data"]["authTicket"]["token"].as<String>();
+  result.accountId = authDoc["data"]["user"]["id"].as<String>();
+  result.accountSha256 = sha256hex(result.accountId);
+  result.userFirstName = authDoc["data"]["user"]["firstName"].as<String>();
+  result.userLastName = authDoc["data"]["user"]["lastName"].as<String>();
+
+  return result.token.length() > 0 && result.accountId.length() > 0;
+}
+
+bool apiFetchConnections(const String& token, const String& accountSha256, DynamicJsonDocument& outDoc) {
+  HTTPClient http;
+  if (!beginJsonRequest(http, apiBaseUrl + "/llu/connections", kConnectionsVersion)) {
+    return false;
+  }
+
+  http.addHeader("Authorization", "Bearer " + token);
+  http.addHeader("account-id", accountSha256);
+
+  int httpResponseCode = http.GET();
+  if (httpResponseCode <= 0) {
+    http.end();
+    return false;
+  }
+
+  String payload = http.getString();
+  http.end();
+
+  DeserializationError error = deserializeJson(outDoc, payload);
+  if (error) {
+    outDoc.clear();
+    return false;
+  }
+
+  if (outDoc["status"].as<int>() != 0) {
+    outDoc.clear();
+    return false;
+  }
+
+  return true;
+}
+
 bool fetchLibreViewData() {
   Serial.println("fetchData");
 
   HTTPClient http;
-  http.begin(apiBaseUrl + "/llu/connections/" + connectionPatientId + "/graph");
+  if (!beginJsonRequest(http, apiBaseUrl + "/llu/connections/" + connectionPatientId + "/graph", kConnectionsVersion)) {
+    return false;
+  }
   http.addHeader("Authorization", "Bearer " + authToken);
-  http.addHeader("product", "llu.android");
-  http.addHeader("version", "4.15.0");
-  http.addHeader("Content-Type", "application/json");
-  http.addHeader("Accept", "application/json");
   http.addHeader("account-id", accountSha256);
 
   int httpResponseCode = http.GET();
