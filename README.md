@@ -74,6 +74,7 @@ The easiest way to flash firmware. Build your own CG2-T1D using the following fi
 
 ## Build From Source and Load the Firmware
 - Install [PlatformIO Core](https://platformio.org/install/cli)
+- Linux users: you may need to add the udev rule by running `curl -fsSL https://raw.githubusercontent.com/platformio/platformio-core/develop/platformio/assets/system/99-platformio-udev.rules | sudo tee /etc/udev/rules.d/99-platformio-udev.rules`
 - Connect the board via USB
 - Clone this repository `git clone https://github.com/giovantenne/CG2-T1D`
 - Run `cd CG2-T1D && pio run -t upload`

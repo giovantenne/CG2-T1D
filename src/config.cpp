@@ -108,7 +108,8 @@ void loadConfigFromEEPROM(){
       JsonDocument authDoc;
       String authPayload = http.getString();
       DeserializationError error = deserializeJson(authDoc, authPayload);
-      if (error || authDoc["status"] != 0){
+      int status = authDoc["status"] | -1;
+      if (error || status != 0){
         resetConfigToDefaults();
       }else{
         String t = authDoc["data"]["authTicket"]["token"];
