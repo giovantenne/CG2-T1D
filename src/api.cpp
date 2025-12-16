@@ -398,7 +398,7 @@ bool fetchDexcomData() {
 
   // Latest reading is index 0 in Dexcom response
   JsonObject latest = arr[0];
-  int arrowCode = aggTrends[aggCount - 1];
+  int arrowCode = dexcomTrendToArrow(latest["Trend"].as<String>());
   int64_t tsMsLatest = parseDexDateMs(latest["WT"].as<String>());
   char tsBuf[24];
   snprintf(tsBuf, sizeof(tsBuf), "%lld", (long long)tsMsLatest);
