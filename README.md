@@ -2,6 +2,10 @@
 
 This is a **free and open source project** that lets you check your CGM-detected glucose values in real time with a small piece of hardware.
 
+Supported CGM sources:
+- Abbott LibreView (Libre 2)
+- Dexcom Share (US / OUS / JP)
+
 This is a remix of my other project CryptoGadgets v2 (CG2) that I created for my personal use. You can find the original project [here](https://github.com/giovantenne/CG2)
 
 ![WiFi Desktop glucose monitor device](https://www.datocms-assets.com/56675/1757097907-pxl_20250905_170517849.jpg?fm=webp&w=610)
@@ -26,9 +30,9 @@ This is a stand-alone device. This means that you don’t need a PC  to get it r
 - Your phone/computer should prompt you with a login/welcome page. If not you can simply browse to the following address: http://172.217.28.1. You should then be able to see and access the device setup interface.
 - On the menu click “Configure new AP”. You should then be presented with a list of existing WiFi networks.
 - Click on your network SSID name, enter your passphrase and click “Apply”.
-- Browse to the QR code displayed on the screen to enter your CGM credentials (currently only Abbott Freestyle Libre 2 is supported). Enter:
-  - Email and password for LibreView
-  - Patient index (0 for first, 1 for second…)
+- Browse to the QR code displayed on the screen to enter your CGM credentials. Enter:
+  - LibreView: email, password, patient index (0 for first, 1 for second…)
+  - Dexcom: username/email/phone, password, region (US / Out of US / Japan)
 
 You also can easily update the device firmware by downloading the latest version, if needed, from the following link: https://github.com/giovantenne/CG2-T1D/releases
 
