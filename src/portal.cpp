@@ -87,11 +87,34 @@ void handleSaveSettings(void){
   String newEmail = Server.arg("inputEmail");
   String newPassword = Server.arg("inputPassword");
   int newPatientIndex = Server.arg("inputPatientIndex").toInt();
+  String providerArg = Server.arg("dataProvider");
+  String dexUser = Server.arg("inputDexcomUser");
+  String dexPass = Server.arg("inputDexcomPassword");
+  String dexRegionArg = Server.arg("dexRegion");
 
   bool requestSuccessful = false;
   bool hasValidIndex = isValidNumber(Server.arg("inputPatientIndex"));
+  bool useDexcom = providerArg == "dexcom";
+  uint8_t selectedRegion = DexcomRegionOUS;
 
-  if (hasValidIndex) {
+  if (dexRegionArg == "us") {
+    selectedRegion = DexcomRegionUS;
+  } else if (dexRegionArg == "jp") {
+    selectedRegion = DexcomRegionJP;
+  }
+
+  if (useDexcom) {
+    bool hasDexCreds = dexUser.length() > 0 && dexPass.length() > 0;
+    if (hasDexCreds) {
+      configStoreSetProvider(ProviderDexcom);
+      configStoreSetDexcomCredentials(dexUser, dexPass);
+      configStoreSetDexcomRegion(selectedRegion);
+      dexcomAccountId = "";
+      dexcomSessionId = "";
+      configStorePersist();
+      requestSuccessful = true;
+    }
+  } else if (hasValidIndex) {
     ApiAuthResult authResult;
     if (apiLogin(newEmail, newPassword, authResult)) {
       DynamicJsonDocument connectionsDoc(8192);
@@ -102,11 +125,11 @@ void handleSaveSettings(void){
           if (connectionCount > 0 && newPatientIndex >= 0 && static_cast<size_t>(newPatientIndex) < connectionCount) {
             JsonVariant selected = connections[newPatientIndex];
             String patientId = selected["patientId"].as<String>();
-            if (patientId.length() > 0) {
-              JsonVariant connectionInfo = selected["connection"];
-              String firstName = connectionInfo["firstName"].as<String>();
-              String lastName = connectionInfo["lastName"].as<String>();
-              patientName = firstName + " " + lastName;
+              if (patientId.length() > 0) {
+                JsonVariant connectionInfo = selected["connection"];
+                String firstName = connectionInfo["firstName"].as<String>();
+                String lastName = connectionInfo["lastName"].as<String>();
+                patientName = firstName + " " + lastName;
               patientName.trim();
               if (patientName.length() == 0) {
                 patientName = authResult.userFirstName + " " + authResult.userLastName;
@@ -117,6 +140,9 @@ void handleSaveSettings(void){
               configStoreSetAccountSha256(authResult.accountSha256);
               configStoreSetPatientId(patientId);
               configStoreSetToken(authResult.token);
+              configStoreSetProvider(ProviderLibreView);
+              configStoreSetDexcomCredentials("", "");
+              configStoreSetDexcomRegion(DexcomRegionOUS);
               configStorePersist();
 
               requestSuccessful = true;
@@ -130,6 +156,10 @@ void handleSaveSettings(void){
   if (requestSuccessful) {
     delay(3000);
     Server.sendHeader("Location", "/setup?valid=true");
+    lastTimedTaskAt = 0; // force immediate refresh
+    renderLoadingIndicator();
+    fetchCurrentData();
+    renderTicker();
   } else {
     handleInvalidParams();
   }

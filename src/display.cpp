@@ -48,26 +48,70 @@ static void renderTickerImpl(const AppState& state) {
     spr.loadFont(ArialBold46);
     spr.setTextColor(TFT_WHITE, TFT_BLACK);
     spr.setTextDatum(MR_DATUM);
-    spr.drawString(state.runtime.currentGlucose, 150, 0);
+  spr.drawString(state.runtime.currentGlucose, 150, 0);
 
-    spr.loadFont(NotoSans15);
-    spr.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    spr.setTextDatum(ML_DATUM);
-    spr.drawString("mg", 165, 0);
+  spr.loadFont(NotoSans15);
+  spr.setTextColor(TFT_DARKGREY, TFT_BLACK);
+  spr.setTextDatum(ML_DATUM);
+  spr.drawString("mg", 165, 0);
     spr.drawLine(165, 18, 185,18, TFT_DARKGREY);
     spr.drawString("dL", 165, 29);
     short xo = 50;
     short yo = 0;
-    if(state.runtime.trendArrowCode == "1"){
-      spr.fillTriangle(xo+155, yo, xo+175, yo, xo+165, yo+30, TFT_WHITE); // 1
-    }else if(state.runtime.trendArrowCode == "2"){
-      spr.fillTriangle(xo+150, yo+10, xo+165, yo, xo+175, yo+30, TFT_WHITE); // 2
-    }else if(state.runtime.trendArrowCode == "3"){
-      spr.fillTriangle(xo+150, yo+5, xo+180, yo+15, xo+150, yo+25, TFT_WHITE); // 3
-    }else if(state.runtime.trendArrowCode == "4"){
-      spr.fillTriangle(xo+150, yo+20, xo+175, yo, xo+165, yo+30, TFT_WHITE); // 4
-    }else if(state.runtime.trendArrowCode == "5"){
-      spr.fillTriangle(xo+155, yo+30, xo+175, yo+30, xo+165, yo, TFT_WHITE); // 5
+    int trend = state.runtime.trendArrowCode.toInt();
+
+    if (dataProvider == ProviderDexcom) {
+      switch (trend) {
+        case 1: // double down
+          spr.fillTriangle(xo+150, yo, xo+170, yo, xo+160, yo+30, TFT_WHITE);
+          spr.fillTriangle(xo+160, yo, xo+180, yo, xo+170, yo+30, TFT_WHITE);
+          spr.drawTriangle(xo+150, yo, xo+170, yo, xo+160, yo+30, TFT_BLACK);
+          spr.drawTriangle(xo+160, yo, xo+180, yo, xo+170, yo+30, TFT_BLACK);
+          break;
+        case 2: // down
+          spr.fillTriangle(xo+155, yo, xo+175, yo, xo+165, yo+30, TFT_WHITE);
+          break;
+        case 3: // diag down
+          spr.fillTriangle(xo+150, yo+10, xo+165, yo, xo+175, yo+30, TFT_WHITE);
+          break;
+        case 4: // flat
+          spr.fillTriangle(xo+150, yo+5, xo+180, yo+15, xo+150, yo+25, TFT_WHITE);
+          break;
+        case 5: // diag up
+          spr.fillTriangle(xo+150, yo+20, xo+175, yo, xo+165, yo+30, TFT_WHITE);
+          break;
+        case 6: // up
+          spr.fillTriangle(xo+155, yo+30, xo+175, yo+30, xo+165, yo, TFT_WHITE);
+          break;
+        case 7: // double up
+          spr.fillTriangle(xo+150, yo+30, xo+170, yo+30, xo+160, yo, TFT_WHITE);
+          spr.fillTriangle(xo+160, yo+30, xo+180, yo+30, xo+170, yo, TFT_WHITE);
+          spr.drawTriangle(xo+150, yo+30, xo+170, yo+30, xo+160, yo, TFT_BLACK);
+          spr.drawTriangle(xo+160, yo+30, xo+180, yo+30, xo+170, yo, TFT_BLACK);
+          break;
+        default:
+          break;
+      }
+    } else { // LibreView: 5-arrow set
+      switch (trend) {
+        case 1: // down
+          spr.fillTriangle(xo+155, yo, xo+175, yo, xo+165, yo+30, TFT_WHITE);
+          break;
+        case 2: // diag down
+          spr.fillTriangle(xo+150, yo+10, xo+165, yo, xo+175, yo+30, TFT_WHITE);
+          break;
+        case 3: // flat
+          spr.fillTriangle(xo+150, yo+5, xo+180, yo+15, xo+150, yo+25, TFT_WHITE);
+          break;
+        case 4: // diag up
+          spr.fillTriangle(xo+150, yo+20, xo+175, yo, xo+165, yo+30, TFT_WHITE);
+          break;
+        case 5: // up
+          spr.fillTriangle(xo+155, yo+30, xo+175, yo+30, xo+165, yo, TFT_WHITE);
+          break;
+        default:
+          break;
+      }
     }
     spr.unloadFont();
     if(!state.runtime.isCharging){
@@ -81,11 +125,11 @@ static void renderTickerImpl(const AppState& state) {
         spr.pushImage(10, 0,  29, 14, battery_01);
       }
     }else{
-      spr.pushImage(10, 0,  29, 14, battery_04);
-    }
-    spr.pushSprite(0, 0);
-    showGraphImpl(state);
+    spr.pushImage(10, 0,  29, 14, battery_04);
   }
+  spr.pushSprite(0, 0);
+  showGraphImpl(state);
+}
 }
 
 static void showGraphImpl(const AppState& state){
@@ -101,6 +145,8 @@ static void showGraphImpl(const AppState& state){
 
   short targetLow = glucoseDoc["data"]["connection"]["targetLow"];
   short targetHigh = glucoseDoc["data"]["connection"]["targetHigh"];
+  if (targetLow == 0) targetLow = 70;
+  if (targetHigh == 0) targetHigh = 180;
   if (minValue > targetLow)
     minValue = targetLow;
   if (minValue > state.runtime.currentGlucose.toInt())
@@ -121,10 +167,29 @@ static void showGraphImpl(const AppState& state){
   else
     missingUpdateCount++;
 
-  if(missingUpdateCount < 5)
+  int missingThreshold = (dataProvider == ProviderDexcom) ? 11 : 5;
+  if(missingUpdateCount < missingThreshold)
     spr.fillRect(0, th, 240, tl, TFT_DARKGREEN);
   else
     spr.fillRect(0, th, 240, tl, TFT_DARKGREY);
+
+  // Age label for Dexcom
+  if (dataProvider == ProviderDexcom) {
+    if (missingUpdateCount <= 0) {
+      tft.loadFont(NotoSans15);
+      tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+      tft.setTextDatum(ML_DATUM);
+      tft.drawString("Now", 6, 26);
+      tft.unloadFont();
+    } else {
+      String ago = String(missingUpdateCount) + "m ago";
+      tft.loadFont(NotoSans15);
+      tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+      tft.setTextDatum(ML_DATUM);
+      tft.drawString(ago, 6, 26);
+      tft.unloadFont();
+    }
+  }
 
   short v0;
   short v1;
@@ -133,13 +198,27 @@ static void showGraphImpl(const AppState& state){
   short x0;
   short x1 = 0;
 
-  for (int i = 48 - state.runtime.graphPoints; i < glucoseGraphData.size() - 1; i++) {
+  int totalPoints = glucoseGraphData.size();
+  int pointsUsed = state.runtime.graphPoints;
+  if (pointsUsed > totalPoints) {
+    pointsUsed = totalPoints;
+  }
+  int startIndex = totalPoints - pointsUsed;
+  // Default: use pointsUsed-1 segments so last point lands at right edge
+  float step = (pointsUsed > 1) ? (240.0f / (float)(pointsUsed - 1)) : 240.0f;
+  // LibreView legacy positioning: fixed window of 48 points, even spacing
+  if (dataProvider == ProviderLibreView) {
+    startIndex = max(0, 48 - pointsUsed);
+    step = (pointsUsed > 0) ? (240.0f / (float)pointsUsed) : 240.0f;
+  }
+
+  for (int i = startIndex; i < totalPoints - 1; i++) {
     v0 = glucoseGraphData[i]["ValueInMgPerDl"];
     v1 = glucoseGraphData[i+1]["ValueInMgPerDl"];
     y0 = 100 - ((v0 - minValue) * 100 / (maxValue-minValue));
     y1 = 100 - ((v1 - minValue) * 100 / (maxValue-minValue));
-    x0 = ((i-(48-state.runtime.graphPoints))*(240/state.runtime.graphPoints));
-    x1 = ((i+1-(48-state.runtime.graphPoints))*(240/state.runtime.graphPoints));
+    x0 = (int)((i - startIndex) * step);
+    x1 = (int)((i + 1 - startIndex) * step);
     spr.drawLine(x0, y0, x1, y1, TFT_WHITE);
     spr.drawLine(x0, y0-1, x1, y1-1, TFT_WHITE);
     spr.drawLine(x0, y0+1, x1, y1+1, TFT_WHITE);
@@ -148,7 +227,16 @@ static void showGraphImpl(const AppState& state){
   y0 = y1;
   y1 = 100 - ((v - minValue) * 100 / (maxValue-minValue));
   x0 = x1;
-  x1 = 236;
+  // Last point position
+  if (dataProvider == ProviderDexcom) {
+    int lastX = (int)((totalPoints - 1 - startIndex) * step);
+    if (lastX > 236) lastX = 236;
+    if (lastX < 0) lastX = 0;
+    x1 = lastX;
+  } else {
+    // Libre: fix end at right edge
+    x1 = 236;
+  }
   spr.drawLine(x0, y0, x1, y1, TFT_WHITE);
   spr.drawLine(x0, y0-1, x1, y1-1, TFT_WHITE);
   spr.drawLine(x0, y0+1, x1, y1+1, TFT_WHITE);
@@ -157,11 +245,11 @@ static void showGraphImpl(const AppState& state){
     y1=3;
 
   if(state.runtime.currentTimestamp!=state.runtime.lastTimestamp)
-    spr.fillCircle(236, y1, 4, TFT_GREEN);
+    spr.fillCircle(x1, y1, 4, TFT_GREEN);
   else
-    spr.fillCircle(236, y1, 4, TFT_ORANGE);
+    spr.fillCircle(x1, y1, 4, TFT_ORANGE);
 
-  spr.drawCircle(236, y1, 5, TFT_WHITE);
+  spr.drawCircle(x1, y1, 5, TFT_WHITE);
 
   spr.loadFont(NotoSansBold15);
   spr.setTextColor(TFT_WHITE, TFT_BLACK);

@@ -17,14 +17,19 @@ void writeStringToEEPROM(int addrOffset, const String &strToWrite)
   }
 }
 
-String readStringFromEEPROM(int addrOffset)
+String readStringFromEEPROM(int &addrOffset, size_t maxLen)
 {
   int newStrLen = EEPROM.read(addrOffset);
+  addrOffset++;
+  if (newStrLen < 0 || newStrLen > (int)maxLen) {
+    return "";
+  }
   char data[newStrLen + 1];
   for (int i = 0; i < newStrLen; i++)
   {
-    data[i] = EEPROM.read(addrOffset + 1 + i);
+    data[i] = EEPROM.read(addrOffset + i);
   }
+  addrOffset += newStrLen;
   data[newStrLen] = '\0';
   return String(data);
 }
@@ -57,6 +62,12 @@ void resetConfigToDefaults() {
   accountSha256="";
   connectionPatientId="";
   authToken="";
+  dataProvider = ProviderLibreView;
+  dexcomUsername = "";
+  dexcomPassword = "";
+  dexcomRegion = DexcomRegionOUS;
+  dexcomAccountId = "";
+  dexcomSessionId = "";
 
   int addr = 0;
   EEPROM.write(addr++, displayBrightness);
@@ -68,6 +79,12 @@ void resetConfigToDefaults() {
   addr += 1 + accountSha256.length();
   writeStringToEEPROM(addr, connectionPatientId);
   addr += 1 + connectionPatientId.length();
+  EEPROM.write(addr++, dataProvider);
+  writeStringToEEPROM(addr, dexcomUsername);
+  addr += 1 + dexcomUsername.length();
+  writeStringToEEPROM(addr, dexcomPassword);
+  addr += 1 + dexcomPassword.length();
+  EEPROM.write(addr++, dexcomRegion);
   EEPROM.commit();
 
   delay(3000);
@@ -79,19 +96,31 @@ void loadConfigFromEEPROM(){
   int addr = 0;
   short b = EEPROM.read(addr++);
   String u = readStringFromEEPROM(addr);
-  addr += 1 + u.length();
   String p = readStringFromEEPROM(addr);
-  addr += 1 + p.length();
   String sha = readStringFromEEPROM(addr);
-  addr += 1 + sha.length();
   String pid = readStringFromEEPROM(addr);
+  uint8_t provider = EEPROM.read(addr++);
+  if (provider > ProviderDexcom) {
+    provider = ProviderLibreView;
+  }
+  String dexUser = readStringFromEEPROM(addr);
+  String dexPass = readStringFromEEPROM(addr);
+  uint8_t region = EEPROM.read(addr++);
+  if (region > DexcomRegionJP) {
+    region = DexcomRegionOUS;
+  }
 
   configStoreSetBrightness(b);
   configStoreSetCredentials(u, p);
   configStoreSetAccountSha256(sha);
   configStoreSetPatientId(pid);
+  configStoreSetProvider(provider);
+  configStoreSetDexcomCredentials(dexUser, dexPass);
+  configStoreSetDexcomRegion(region);
+  dexcomAccountId = "";
+  dexcomSessionId = "";
 
-  if(isValidEmail(userEmail)){
+  if(dataProvider == ProviderLibreView && isValidEmail(userEmail)){
     HTTPClient http;
     http.begin(apiBaseUrl + "/llu/auth/login");
     http.addHeader("product", "llu.android");
@@ -121,7 +150,9 @@ void loadConfigFromEEPROM(){
     } else {
       resetConfigToDefaults();
     } 
-  }else{
+  } else if (dataProvider == ProviderDexcom) {
+    // Dexcom path: no validation here; credentials are checked during Dexcom fetch.
+  } else {
     resetConfigToDefaults();
   }
 }

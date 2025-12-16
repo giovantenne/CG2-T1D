@@ -33,10 +33,14 @@ void button_init()
       readBatteryLevel();
       lastTimedTaskAt = millis();
       Serial.println("Execute forced task...");
-      missingUpdateCount--;
       renderLoadingIndicator();
-      fetchLibreViewData();
-      renderTicker();
+      bool ok = fetchCurrentData();
+      if (ok) {
+        missingUpdateCount = 0;
+        renderTicker();
+      } else {
+        displayNetworkError();
+      }
       });
 
   btn1.setPressedHandler([](Button2 & b) {

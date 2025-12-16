@@ -15,4 +15,6 @@ struct ApiAuthResult {
 bool apiLogin(const String& email, const String& password, ApiAuthResult& result);
 bool apiFetchConnections(const String& token, const String& accountSha256, DynamicJsonDocument& outDoc);
 bool fetchLibreViewData();
+bool fetchDexcomData();
+bool fetchCurrentData();
 String sha256hex(const String& input);

@@ -2,6 +2,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include "app_state.h"
 
 struct ConfigState {
   short displayBrightness = 0;
@@ -10,6 +11,10 @@ struct ConfigState {
   String accountSha256;
   String connectionPatientId;
   short selectedPatientIndex = 0;
+  uint8_t dataProvider = ProviderLibreView;
+  String dexcomUsername;
+  String dexcomPassword;
+  uint8_t dexcomRegion = DexcomRegionOUS;
 };
 
 struct RuntimeState {

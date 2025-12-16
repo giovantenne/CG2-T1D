@@ -17,6 +17,7 @@ extern const String firmwareVersion = "vT1D.7";
 #include "buttons.h"
 #include "api.h"
 #include "ota.h"
+#include "fonts/NotoSansBold15.h"
 
 void setup()
 {
@@ -71,7 +72,10 @@ void setup()
       short convertedBrightness = displayBrightness*255/100;
       Serial.println(convertedBrightness);
       ledcWrite(pwmLedChannelTFT, convertedBrightness);
-      if(userEmail==""){
+      bool hasLibreCredentials = (userEmail.length() > 0);
+      bool hasDexcomCredentials = (dexcomUsername.length() > 0 && dexcomPassword.length() > 0);
+      bool hasCredentials = (dataProvider == ProviderDexcom) ? hasDexcomCredentials : hasLibreCredentials;
+      if(!hasCredentials){
         Serial.println("Account not connected");
         Serial.println("http://" + WiFi.localIP().toString() + "/setup");
         String url = "http://" + WiFi.localIP().toString() + "/setup";
@@ -107,11 +111,11 @@ void loop()
         Serial.println("btn1Click");
         short newBrightness = (displayBrightness + 10) % 100;
         setBrightness(newBrightness);
-        short convertedBrightness = newBrightness*255/100;
-        Serial.println(convertedBrightness);
-        ledcWrite(pwmLedChannelTFT, convertedBrightness);
-        EEPROM.write(0, newBrightness);
-        EEPROM.commit();
+      short convertedBrightness = newBrightness*255/100;
+      Serial.println(convertedBrightness);
+      ledcWrite(pwmLedChannelTFT, convertedBrightness);
+      EEPROM.write(0, newBrightness);
+      EEPROM.commit();
       }
       if (btn2Click){
         btn2Click = false;
@@ -125,13 +129,20 @@ void loop()
         missingUpdateCount--;
       }
 
-      if (userEmail != "" && (millis() - lastTimedTaskAt > timedTaskIntervalMs)) {
+      bool hasLibreCredentials = (userEmail != "");
+      bool hasDexcomCredentials = (dexcomUsername.length() > 0 && dexcomPassword.length() > 0);
+      bool hasCredentials = (dataProvider == ProviderDexcom) ? hasDexcomCredentials : hasLibreCredentials;
+      if (hasCredentials && (millis() - lastTimedTaskAt > timedTaskIntervalMs)) {
         readBatteryLevel();
         lastTimedTaskAt = millis();
         Serial.println("Execute timed task...");
         renderLoadingIndicator();
-        fetchLibreViewData();
-        renderTicker();
+        bool ok = fetchCurrentData();
+        if (ok) {
+          renderTicker();
+        } else {
+          displayNetworkError();
+        }
       }
     }
   }

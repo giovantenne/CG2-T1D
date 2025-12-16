@@ -27,13 +27,18 @@ ACText(caption1, "Do you want to perform a factory reset?");
 ACSubmit(save1, "Yes, reset the device", "/delconnexecute");
 AutoConnectAux aux1("/delconn", "Reset", true, {caption1, save1});
 AutoConnectAux aux1Execute("/delconnexecute", "Wifi reset", false);
-ACText(captionLogin, "<hr><strong>Login</strong><br>");
+ACText(captionSource, "<hr><strong>Data source</strong><br><label for=\"dataProvider\">Provider</label><br><select name=\"dataProvider\" id=\"dataProvider\"><option value=\"libreview\">LibreView</option><option value=\"dexcom\">Dexcom</option></select><br><small>Select which API to use for glucose data.</small><hr><strong>LibreView</strong><br>");
+ACText(captionLogin, "");
 ACText(captionHr, "<hr>");
-ACInput(inputEmail, "", "Email", "", "");
-ACInput(inputPassword, "", "Password", "", "");
+ACInput(inputEmail, "", "LibreView email", "", "");
+ACInput(inputPassword, "", "LibreView password", "", "", AC_Tag_BR, AC_Input_Password);
 ACInput(inputPatientIndex, "0", "Patient index", "", "0");
+ACText(captionDexcom, "<hr><strong>Dexcom</strong><br>");
+ACInput(inputDexcomUser, "", "Dexcom username/email/phone", "", "");
+ACInput(inputDexcomPassword, "", "Dexcom password", "", "", AC_Tag_BR, AC_Input_Password);
+ACText(selectDexcomRegion, "<label for=\"dexRegion\">Region</label><br><select name=\"dexRegion\" id=\"dexRegion\"><option value=\"ous\">Out of US</option><option value=\"us\">US</option><option value=\"jp\">Japan</option></select><br>");
 ACSubmit(save2, "Save", "/setupexecute");
-AutoConnectAux aux2("/setup", "Settings", true, {captionLogin, inputEmail, inputPassword, inputPatientIndex, captionHr, save2});
+AutoConnectAux aux2("/setup", "Settings", true, {captionSource, captionLogin, inputEmail, inputPassword, inputPatientIndex, captionDexcom, inputDexcomUser, inputDexcomPassword, selectDexcomRegion, captionHr, save2});
 AutoConnectAux aux3("/setupexecute", "", false);
 
 // Data/state
@@ -53,6 +58,13 @@ short selectedPatientIndex = 0;
 String authToken = "";
 String accountSha256;
 String connectionPatientId;
+uint8_t dataProvider = ProviderLibreView;
+String dexcomUsername;
+String dexcomPassword;
+uint8_t dexcomRegion = DexcomRegionOUS;
+String dexcomAccountId;
+String dexcomSessionId;
+bool dexcomLastDouble = false;
 
 JsonArray glucoseGraphData;
 bool isLoading = false;

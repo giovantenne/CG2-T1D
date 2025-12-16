@@ -32,6 +32,21 @@ void configStoreSetBrightness(short b) {
   displayBrightness = b;
 }
 
+void configStoreSetProvider(uint8_t provider) {
+  dataProvider = provider;
+}
+
+void configStoreSetDexcomCredentials(const String& user, const String& pass) {
+  dexcomUsername = user;
+  dexcomPassword = pass;
+  dexcomAccountId = "";
+  dexcomSessionId = "";
+}
+
+void configStoreSetDexcomRegion(uint8_t region) {
+  dexcomRegion = region;
+}
+
 void configStorePersist() {
   int addr = 0;
   EEPROM.write(addr++, displayBrightness);
@@ -43,5 +58,11 @@ void configStorePersist() {
   addr += 1 + accountSha256.length();
   writeStringToEEPROMLocal(addr, connectionPatientId);
   addr += 1 + connectionPatientId.length();
+  EEPROM.write(addr++, dataProvider);
+  writeStringToEEPROMLocal(addr, dexcomUsername);
+  addr += 1 + dexcomUsername.length();
+  writeStringToEEPROMLocal(addr, dexcomPassword);
+  addr += 1 + dexcomPassword.length();
+  EEPROM.write(addr++, dexcomRegion);
   EEPROM.commit();
 }

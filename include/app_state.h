@@ -38,11 +38,16 @@ extern AutoConnectText caption1;
 extern AutoConnectSubmit save1;
 extern AutoConnectAux aux1;
 extern AutoConnectAux aux1Execute;
+extern AutoConnectText captionSource;
 extern AutoConnectText captionLogin;
 extern AutoConnectText captionHr;
 extern AutoConnectInput inputEmail;
 extern AutoConnectInput inputPassword;
 extern AutoConnectInput inputPatientIndex;
+extern AutoConnectText captionDexcom;
+extern AutoConnectInput inputDexcomUser;
+extern AutoConnectInput inputDexcomPassword;
+extern AutoConnectText selectDexcomRegion;
 extern AutoConnectSubmit save2;
 extern AutoConnectAux aux2;
 extern AutoConnectAux aux3;
@@ -64,6 +69,26 @@ extern short selectedPatientIndex;
 extern String authToken;
 extern String accountSha256;
 extern String connectionPatientId;
+extern uint8_t dataProvider;
+extern String dexcomUsername;
+extern String dexcomPassword;
+extern uint8_t dexcomRegion;
+extern String dexcomAccountId;
+extern String dexcomSessionId;
+extern bool dexcomLastDouble;
+
+// Providers
+enum DataProvider : uint8_t {
+  ProviderLibreView = 0,
+  ProviderDexcom = 1
+};
+
+// Dexcom regions
+enum DexcomRegion : uint8_t {
+  DexcomRegionUS = 0,
+  DexcomRegionOUS = 1,
+  DexcomRegionJP = 2
+};
 
 extern JsonArray glucoseGraphData;
 extern bool isLoading;

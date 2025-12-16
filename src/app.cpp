@@ -10,6 +10,10 @@ AppState getAppState() {
   s.config.accountSha256 = accountSha256;
   s.config.connectionPatientId = connectionPatientId;
   s.config.selectedPatientIndex = selectedPatientIndex;
+  s.config.dataProvider = dataProvider;
+  s.config.dexcomUsername = dexcomUsername;
+  s.config.dexcomPassword = dexcomPassword;
+  s.config.dexcomRegion = dexcomRegion;
   // Runtime
   s.runtime.currentGlucose = currentGlucose;
   s.runtime.trendArrowCode = trendArrowCode;
