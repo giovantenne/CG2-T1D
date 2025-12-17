@@ -1,7 +1,7 @@
 // 240x135
 #include <Arduino.h>
 // Firmware version (moved here per request)
-extern const String firmwareVersion = "vT1D.7";
+extern const String firmwareVersion = "vT1D.8";
 #ifndef UNIT_TEST
 #include <EEPROM.h>
 #include <TFT_eSPI.h>
