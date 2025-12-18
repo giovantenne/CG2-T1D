@@ -227,18 +227,19 @@ static void showGraphImpl(const AppState& state){
     spr.drawLine(x0, y0-1, x1, y1-1, TFT_WHITE);
     spr.drawLine(x0, y0+1, x1, y1+1, TFT_WHITE);
   }
-  int v = state.runtime.currentGlucose.toInt();
+  // Use the last graph point to align the endpoint vertically
+  int v = glucoseGraphData[glucoseGraphData.size() - 1]["ValueInMgPerDl"];
   y0 = y1;
   y1 = 100 - ((v - minValue) * 100 / (maxValue-minValue));
   x0 = x1;
-  // Last point position
+  int lastX = (int)((totalPoints - 1 - startIndex) * step);
+  if (lastX > 236) lastX = 236;
+  if (lastX < 0) lastX = 0;
+  // Dexcom: place the marker where the last point naturally lands.
+  // Libre: keep the legacy fixed right edge placement.
   if (dataProvider == ProviderDexcom) {
-    int lastX = (int)((totalPoints - 1 - startIndex) * step);
-    if (lastX > 236) lastX = 236;
-    if (lastX < 0) lastX = 0;
     x1 = lastX;
   } else {
-    // Libre: fix end at right edge
     x1 = 236;
   }
   spr.drawLine(x0, y0, x1, y1, TFT_WHITE);
