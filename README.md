@@ -118,4 +118,4 @@ Notes:
 - The CG2-T1D is not intended to replace self-monitoring practices as advised by a physician.
 - THIS SOFTWARE MUST NOT BE USED TO MAKE MEDICAL DECISIONS
 - There is no warranty for this software
-- This software is not supported or endorsed by Abbott, Libre or any other party
+- This software is not supported or endorsed by Abbott, Dexcom, Libre or any other party

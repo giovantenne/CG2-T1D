@@ -65,6 +65,10 @@ uint8_t dexcomRegion = DexcomRegionOUS;
 String dexcomAccountId;
 String dexcomSessionId;
 bool dexcomLastDouble = false;
+bool dexcomFreshFound = false;
+bool dexcomNewData = false;
+uint8_t dexcomSkipCounter = 0;
+String dexcomLastTs;
 
 JsonArray glucoseGraphData;
 bool isLoading = false;

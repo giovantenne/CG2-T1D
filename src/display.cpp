@@ -162,10 +162,13 @@ static void showGraphImpl(const AppState& state){
   spr.createSprite(240, 100);
   spr.fillSprite(TFT_BLACK);
 
-  if(state.runtime.currentTimestamp!=state.runtime.lastTimestamp)
+  static String lastRenderedTs;
+  if (state.runtime.currentTimestamp.length() > 0 && state.runtime.currentTimestamp != lastRenderedTs) {
     missingUpdateCount = 0;
-  else
+    lastRenderedTs = state.runtime.currentTimestamp;
+  } else {
     missingUpdateCount++;
+  }
 
   int missingThreshold = (dataProvider == ProviderDexcom) ? 11 : 5;
   if(missingUpdateCount < missingThreshold)
@@ -175,6 +178,7 @@ static void showGraphImpl(const AppState& state){
 
   // Age label for Dexcom
   if (dataProvider == ProviderDexcom) {
+    Serial.print("Dexcom missingUpdateCount: " + String(missingUpdateCount) + "\n");
     if (missingUpdateCount <= 0) {
       tft.loadFont(NotoSans15);
       tft.setTextColor(TFT_DARKGREY, TFT_BLACK);

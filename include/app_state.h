@@ -76,6 +76,10 @@ extern uint8_t dexcomRegion;
 extern String dexcomAccountId;
 extern String dexcomSessionId;
 extern bool dexcomLastDouble;
+extern bool dexcomFreshFound;
+extern bool dexcomNewData;
+extern uint8_t dexcomSkipCounter;
+extern String dexcomLastTs;
 
 // Providers
 enum DataProvider : uint8_t {

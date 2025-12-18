@@ -1,7 +1,7 @@
 // 240x135
 #include <Arduino.h>
 // Firmware version (moved here per request)
-extern const String firmwareVersion = "vT1D.8";
+extern const String firmwareVersion = "vT1D.9";
 #ifndef UNIT_TEST
 #include <EEPROM.h>
 #include <TFT_eSPI.h>
@@ -136,12 +136,42 @@ void loop()
         readBatteryLevel();
         lastTimedTaskAt = millis();
         Serial.println("Execute timed task...");
-        renderLoadingIndicator();
-        bool ok = fetchCurrentData();
-        if (ok) {
-          renderTicker();
+        if (dataProvider == ProviderDexcom) {
+          bool shouldFetch = true;
+          if (dexcomFreshFound) {
+            // After first new data, fetch every 5 minutes
+            dexcomSkipCounter++;
+            if (dexcomSkipCounter < 5) {
+              shouldFetch = false;
+            } else {
+              dexcomSkipCounter = 0;
+            }
+          }
+          if (shouldFetch) {
+            renderLoadingIndicator();
+            bool ok = fetchCurrentData();
+            if (ok) {
+              if (dexcomNewData) {
+                dexcomFreshFound = true;
+                dexcomSkipCounter = 0;
+                missingUpdateCount = 0;
+              } else {
+                dexcomSkipCounter = 0; // still fetched, reset skip counter
+              }
+            } else {
+              displayNetworkError();
+            }
+            renderTicker();
+          } else {
+            renderTicker(); // update age label each minute
+          }
         } else {
-          displayNetworkError();
+          renderLoadingIndicator();
+          bool ok = fetchCurrentData();
+          if (!ok) {
+            displayNetworkError();
+          }
+          renderTicker();
         }
       }
     }

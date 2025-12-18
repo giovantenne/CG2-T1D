@@ -130,6 +130,12 @@ int libreTrendToArrow(int raw) {
 }
 }  // namespace
 
+#ifdef UNIT_TEST
+int testDexcomTrendToArrow(const String& trend) { return dexcomTrendToArrow(trend); }
+int testLibreTrendToArrow(int raw) { return libreTrendToArrow(raw); }
+int64_t testParseDexDateMs(const String& dexDate) { return parseDexDateMs(dexDate); }
+#endif
+
 bool apiLogin(const String& email, const String& password, ApiAuthResult& result) {
   HTTPClient http;
   if (!beginJsonRequest(http, apiBaseUrl + "/llu/auth/login", kConnectionsVersion)) {
@@ -244,6 +250,7 @@ bool fetchLibreViewData() {
 }
 
 bool fetchDexcomData() {
+  dexcomNewData = false;
   if (dexcomUsername.length() == 0 || dexcomPassword.length() == 0) {
     Serial.println("Dexcom credentials missing");
     return false;
@@ -402,6 +409,11 @@ bool fetchDexcomData() {
   int64_t tsMsLatest = parseDexDateMs(latest["WT"].as<String>());
   char tsBuf[24];
   snprintf(tsBuf, sizeof(tsBuf), "%lld", (long long)tsMsLatest);
+  String tsStr(tsBuf);
+  if (dexcomLastTs.length() > 0 && tsStr != dexcomLastTs) {
+    dexcomNewData = true;
+  }
+  dexcomLastTs = tsStr;
   Serial.printf("[Dexcom] latest value=%d trend=%s arrow=%d ts=%s\n",
                 latest["Value"].as<int>(),
                 latest["Trend"].as<const char*>(),
