@@ -17,6 +17,14 @@ const char* kDexAppIdOUS = "d89443d2-327c-4a6f-89e5-496bbb0317db";
 const char* kDexAppIdJP = "d8665ade-9673-4e27-9ff6-92db4ce13d13";
 WiFiClientSecure dexClient;
 
+void resetDexcomSession(bool dropAccount = false) {
+  dexcomSessionId = "";
+  dexcomLastTs = "";
+  if (dropAccount) {
+    dexcomAccountId = "";
+  }
+}
+
 String maskSecret(const String& secret) {
   if (secret.length() <= 2) return "**";
   return secret.substring(0, 2) + "***";
@@ -273,8 +281,9 @@ bool fetchDexcomData() {
     authBody += "}";
     int code = http.POST(authBody);
     Serial.printf("[HTTP] Dexcom accountId status: %d\n", code);
-    if (code <= 0) {
+    if (code != 200) {
       http.end();
+      resetDexcomSession(true);
       return false;
     }
     String accountId = http.getString();
@@ -302,16 +311,16 @@ bool fetchDexcomData() {
     sessionBody += "}";
     int code = http2.POST(sessionBody);
     Serial.printf("[HTTP] Dexcom sessionId status: %d\n", code);
-    if (code <= 0) {
+    if (code != 200) {
       http2.end();
-      dexcomSessionId = "";
+      resetDexcomSession(true);
       return false;
     }
     String sessionId = http2.getString();
     http2.end();
     sessionId.replace("\"", "");
     if (sessionId.length() == 0) {
-      dexcomSessionId = "";
+      resetDexcomSession(true);
       return false;
     }
     dexcomSessionId = sessionId;
@@ -332,9 +341,14 @@ bool fetchDexcomData() {
   readingsBody += "}";
   int code = http3.POST(readingsBody);
   Serial.printf("[HTTP] Dexcom readings status: %d\n", code);
-  if (code <= 0) {
+  if (code != 200) {
+    String payload = http3.getString();
     http3.end();
-    dexcomSessionId = "";
+    Serial.println("Dexcom readings failed, clearing session/account");
+    if (payload.length() > 0) {
+      Serial.println(payload);
+    }
+    resetDexcomSession(true);
     return false;
   }
   String payload = http3.getString();
@@ -344,10 +358,12 @@ bool fetchDexcomData() {
   DeserializationError err = deserializeJson(doc, payload);
   if (err) {
     Serial.println("Dexcom JSON parse error");
+    resetDexcomSession(true);
     return false;
   }
   JsonArray arr = doc.as<JsonArray>();
   if (arr.isNull() || arr.size() == 0) {
+    resetDexcomSession(true);
     return false;
   }
   Serial.printf("[Dexcom] readings=%d\n", arr.size());
