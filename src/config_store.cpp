@@ -41,9 +41,7 @@ void configStoreSetDexcomCredentials(const String& user, const String& pass) {
   dexcomPassword = pass;
   dexcomAccountId = "";
   dexcomSessionId = "";
-  dexcomFreshFound = false;
   dexcomNewData = false;
-  dexcomSkipCounter = 0;
   dexcomLastTs = "";
 }
 

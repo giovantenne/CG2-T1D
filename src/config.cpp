@@ -66,9 +66,7 @@ void resetConfigToDefaults() {
   dexcomUsername = "";
   dexcomPassword = "";
   dexcomRegion = DexcomRegionOUS;
-  dexcomFreshFound = false;
   dexcomNewData = false;
-  dexcomSkipCounter = 0;
   dexcomLastTs = "";
   dexcomAccountId = "";
   dexcomSessionId = "";

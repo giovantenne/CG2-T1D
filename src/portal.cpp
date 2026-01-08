@@ -111,9 +111,7 @@ void handleSaveSettings(void){
       configStoreSetDexcomRegion(selectedRegion);
       dexcomAccountId = "";
       dexcomSessionId = "";
-      dexcomFreshFound = false;
       dexcomNewData = false;
-      dexcomSkipCounter = 0;
       dexcomLastTs = "";
       configStorePersist();
       requestSuccessful = true;
@@ -148,7 +146,6 @@ void handleSaveSettings(void){
               configStoreSetDexcomCredentials("", "");
               configStoreSetDexcomRegion(DexcomRegionOUS);
               configStorePersist();
-
               requestSuccessful = true;
             }
           }
