@@ -75,7 +75,6 @@ extern String dexcomPassword;
 extern uint8_t dexcomRegion;
 extern String dexcomAccountId;
 extern String dexcomSessionId;
-extern bool dexcomLastDouble;
 extern bool dexcomNewData;
 extern String dexcomLastTs;
 

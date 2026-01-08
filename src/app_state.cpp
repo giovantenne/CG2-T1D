@@ -64,7 +64,6 @@ String dexcomPassword;
 uint8_t dexcomRegion = DexcomRegionOUS;
 String dexcomAccountId;
 String dexcomSessionId;
-bool dexcomLastDouble = false;
 bool dexcomNewData = false;
 String dexcomLastTs;
 

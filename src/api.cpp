@@ -122,7 +122,7 @@ int dexcomTrendToArrow(const String& trend) {
   return 4;
 }
 
-int libreTrendToArrow(int raw) {
+__attribute__((unused)) int libreTrendToArrow(int raw) {
   // Libre uses 5 arrows: 1=down, 2=diag down, 3=flat, 4=diag up, 5=up
   // Raw TrendArrow: 1=DoubleUp,2=SingleUp,3=FortyFiveUp,4=Flat,5=FortyFiveDown,6=SingleDown,7=DoubleDown
   switch (raw) {
