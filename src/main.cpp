@@ -137,34 +137,18 @@ void loop()
         lastTimedTaskAt = millis();
         Serial.println("Execute timed task...");
         if (dataProvider == ProviderDexcom) {
-          bool shouldFetch = true;
-          if (dexcomFreshFound) {
-            // After first new data, fetch every 5 minutes
-            dexcomSkipCounter++;
-            if (dexcomSkipCounter < 5) {
-              shouldFetch = false;
-            } else {
-              dexcomSkipCounter = 0;
-            }
-          }
+          bool shouldFetch = (millis() - lastDexcomFetchAt > dexcomTimedTaskIntervalMs);
           if (shouldFetch) {
+            lastDexcomFetchAt = millis();
             renderLoadingIndicator();
             bool ok = fetchCurrentData();
-            if (ok) {
-              if (dexcomNewData) {
-                dexcomFreshFound = true;
-                dexcomSkipCounter = 0;
-                missingUpdateCount = 0;
-              } else {
-                dexcomSkipCounter = 0; // still fetched, reset skip counter
-              }
-            } else {
+            if (ok && dexcomNewData) {
+              missingUpdateCount = 0;
+            } else if (!ok) {
               displayNetworkError();
             }
-            renderTicker();
-          } else {
-            renderTicker(); // update age label each minute
           }
+          renderTicker(); // update age label each minute
         } else {
           renderLoadingIndicator();
           bool ok = fetchCurrentData();

@@ -156,8 +156,11 @@ static void showGraphImpl(const AppState& state){
   if (maxValue < state.runtime.currentGlucose.toInt())
     maxValue = state.runtime.currentGlucose.toInt();
 
-  short th = 100 - ((targetHigh - minValue) * 100 / (maxValue-minValue));
-  short tl = 100 - ((targetLow - minValue) * 100 / (maxValue-minValue));
+  int yHigh = 100 - ((targetHigh - minValue) * 100 / (maxValue - minValue));
+  int yLow = 100 - ((targetLow - minValue) * 100 / (maxValue - minValue));
+  int bandTop = min(yHigh, yLow);
+  int bandBottom = max(yHigh, yLow);
+  int bandHeight = bandBottom - bandTop;
 
   spr.createSprite(240, 100);
   spr.fillSprite(TFT_BLACK);
@@ -172,9 +175,9 @@ static void showGraphImpl(const AppState& state){
 
   int missingThreshold = (dataProvider == ProviderDexcom) ? 11 : 5;
   if(missingUpdateCount < missingThreshold)
-    spr.fillRect(0, th, 240, tl, TFT_DARKGREEN);
+    spr.fillRect(0, bandTop, 240, bandHeight, TFT_DARKGREEN);
   else
-    spr.fillRect(0, th, 240, tl, TFT_DARKGREY);
+    spr.fillRect(0, bandTop, 240, bandHeight, TFT_DARKGREY);
 
   // Age label for Dexcom
   if (dataProvider == ProviderDexcom) {

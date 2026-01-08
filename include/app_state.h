@@ -111,6 +111,8 @@ extern unsigned long wifiScanTimestamp;
 extern const unsigned long wifiScanIntervalMs;
 extern unsigned long lastTimedTaskAt;
 extern const unsigned long timedTaskIntervalMs;
+extern const unsigned long dexcomTimedTaskIntervalMs;
+extern unsigned long lastDexcomFetchAt;
 
 // Battery monitor
 extern Pangodream_18650_CL BL;

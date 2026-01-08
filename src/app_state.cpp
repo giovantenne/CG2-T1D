@@ -87,6 +87,8 @@ unsigned long wifiScanTimestamp = 0;
 const unsigned long wifiScanIntervalMs = 120 * 1000;
 unsigned long lastTimedTaskAt = -1000000000;
 const unsigned long timedTaskIntervalMs = 1000 * 60;
+const unsigned long dexcomTimedTaskIntervalMs = 1000 * 60 * 5;
+unsigned long lastDexcomFetchAt = -1000000000;
 
 // Battery monitor
 Pangodream_18650_CL BL(ADC_PIN, CONV_FACTOR, READS);
